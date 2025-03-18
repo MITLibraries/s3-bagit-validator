@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+sentry-sdk = "*"
+
+[dev-packages]
+black = "*"
+coveralls = "*"
+mypy = "*"
+pre-commit = "*"
+pytest = "*"
+ruff = "*"
+
+[requires]
+python_version = "3.12"
