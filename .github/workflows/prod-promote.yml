@@ -1,0 +1,22 @@
+### This is the Terraform-generated prod-promote.yml workflow for the      ###
+### s3-bagit-validator-prod repository. If this is a Lambda repo,          ###
+### uncomment the FUNCTION line at the end of the document.                ###
+name: Prod Container Promote
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Prod Container Promote
+    uses: mitlibraries/.github/.github/workflows/ecr-shared-promote-prod.yml@main
+    secrets: inherit
+    with:
+      AWS_REGION: "us-east-1"
+      GHA_ROLE_STAGE: s3-bagit-validator-gha-stage
+      GHA_ROLE_PROD: s3-bagit-validator-gha-prod
+      ECR_STAGE: "s3-bagit-validator-stage"
+      ECR_PROD: "s3-bagit-validator-prod"
+      FUNCTION: "s3-bagit-validator-prod"
+ 
