@@ -54,3 +54,17 @@ docker run -p 9000:8080 validator:latest lambdas.<a-different-module>.lambda_han
 SENTRY_DSN=### If set to a valid Sentry DSN, enables Sentry exception monitoring. This is not needed for local development.
 WORKSPACE=### Set to `dev` for local development, this will be set to `stage` and `prod` in those environments by Terraform.
 ```
+
+## Related Assets
+
+* Infrastructure: TODO
+
+```mermaid
+mindmap
+    root((s3-bagit-validator))        
+```
+
+## Maintainers
+
+* Team: [DataEng](https://github.com/orgs/MITLibraries/teams/dataeng)
+* Last Maintenance: 2025-03
