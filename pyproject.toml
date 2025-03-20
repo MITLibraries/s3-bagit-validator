@@ -26,8 +26,6 @@ show-fixes = true
 select = ["ALL", "PT"]
 ignore = [
     # default
-    "ANN101",
-    "ANN102",
     "COM812",
     "D107",
     "N812",
