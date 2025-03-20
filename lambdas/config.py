@@ -14,6 +14,7 @@ class Config:
         "WORKSPACE",
         "SENTRY_DSN",
     )
+    OPTIONAL_ENV_VARS = ()
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Provide dot notation access to configurations and env vars on this class."""
