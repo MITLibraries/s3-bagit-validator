@@ -10,11 +10,14 @@ from lambdas.utils.aws.athena import AthenaClient
 
 
 @pytest.fixture(autouse=True)
-def _test_env(monkeypatch):
+def _test_env(monkeypatch, request):
     monkeypatch.setenv("WORKSPACE", "test")
     monkeypatch.setenv("SENTRY_DSN", "None")
-    monkeypatch.setenv("AWS_ATHENA_WORK_GROUP", "default")
-    monkeypatch.setenv("AWS_ATHENA_DATABASE", "my-athena-db")
+
+    # do not set for integration tests
+    if not request.node.get_closest_marker("integration"):
+        monkeypatch.setenv("AWS_ATHENA_WORK_GROUP", "default")
+        monkeypatch.setenv("AWS_ATHENA_DATABASE", "my-athena-db")
 
 
 @pytest.fixture
