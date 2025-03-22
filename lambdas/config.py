@@ -13,8 +13,10 @@ class Config:
     REQUIRED_ENV_VARS = (
         "WORKSPACE",
         "SENTRY_DSN",
+        "AWS_ATHENA_WORK_GROUP",
+        "AWS_ATHENA_DATABASE",
     )
-    OPTIONAL_ENV_VARS = ()
+    OPTIONAL_ENV_VARS = ("AWS_DEFAULT_REGION",)
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Provide dot notation access to configurations and env vars on this class."""
@@ -29,6 +31,10 @@ class Config:
         if missing_vars:
             message = f"Missing required environment variables: {', '.join(missing_vars)}"
             raise OSError(message)
+
+    @property
+    def aws_region(self) -> str:
+        return self.AWS_DEFAULT_REGION or "us-east-1"
 
 
 def check_verbosity(verbose: bool | str) -> bool:

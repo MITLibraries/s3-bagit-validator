@@ -12,6 +12,10 @@ exclude = ["tests/"]
 
 [tool.pytest.ini_options]
 log_level = "INFO"
+markers = [
+    "unit: unit tests",
+    "integration: integration tests"
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -38,6 +42,7 @@ ignore = [
     "D102",
     "D103",
     "D104",
+    "G004",
     "PLR0912",
     "PLR0913",
     "PLR0915",
