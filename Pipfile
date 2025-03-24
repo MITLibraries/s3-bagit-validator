@@ -5,6 +5,8 @@ name = "pypi"
 
 [packages]
 sentry-sdk = "*"
+pyathena = {extras = ["sqlalchemy"], version = "*"}
+pandas = "*"
 
 [dev-packages]
 black = "*"
@@ -14,6 +16,7 @@ pre-commit = "*"
 pytest = "*"
 ruff = "*"
 ipython = "*"
+pandas-stubs = "*"
 
 [requires]
 python_version = "3.12"
