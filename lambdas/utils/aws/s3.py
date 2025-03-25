@@ -24,24 +24,26 @@ class S3Client:
             raise ValueError(f"Invalid S3 URI scheme: {s3_uri}")
 
         bucket = parsed.netloc
-        key = parsed.path.lstrip("/")
+        key = parsed.path.removeprefix("/")
         return bucket, key
 
     @classmethod
     def folder_exists(cls, s3_uri: str) -> bool:
         """Ensure that an S3 folder exists.
 
-        This is performed by looking for an object that exists under this prefix,
+        This is performed by looking for an object that begins with this prefix,
         effectively demonstrating this is an S3 "folder" (though really just a prefix).
+        Theoretically, it's possible this could be a zero-byte object "folder" and NOT
+        contain any child objects, but this would still satisfy this method of detecting
+        a "folder-like" object at this URI.
         """
         bucket, prefix = cls.parse_s3_uri(s3_uri)
         prefix = prefix.removesuffix("/") + "/"
         s3_client = cls.get_client()
-
-        # retrieve max of one object with this prefix
         objects = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
 
-        # if contents present, assume there are child objects
+        # if "Contents" present in response, assume either child objects under this
+        # prefix or this is an empty folder; either case indicating presence of a folder
         return "Contents" in objects
 
     @classmethod
