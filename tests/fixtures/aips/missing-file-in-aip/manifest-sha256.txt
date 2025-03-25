@@ -1,0 +1,2 @@
+067a27c06ead6823eec8298fc0782e51ab5a3753efd96e8a6e1b802f216d195b  data/file1.txt
+161fdcce3e2e7cdbe03869c07b0affd475cdf4bf5bc2b3b6e1e4f037131666bc  data/file2.txt

@@ -56,6 +56,5 @@ class TestAthenaIntegration:
             with pytest.raises(DatabaseError, match="WorkGroup is not found."):
                 _ = conn.execute(text("select 1 as x, 2 as y;"))
 
-
-# NOTE WIP: anticipating more integration tests, with real Athena queries, as the
-#   inventory querying logic is added
+    # NOTE WIP: anticipating more integration tests, with real Athena queries, as the
+    #   inventory querying logic is added

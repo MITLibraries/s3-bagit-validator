@@ -80,7 +80,7 @@ class S3Client:
     @classmethod
     def generate_checksum_for_object(cls, s3_uri: str) -> str:
         """Generate a SHA256 checksum for an S3 object by copying it over itself."""
-        logger.info(f"generating checksum for: {s3_uri}")
+        logger.info(f"Generating checksum for: {s3_uri}")
         bucket, key = cls.parse_s3_uri(s3_uri)
         s3_client = cls.get_client()
 
