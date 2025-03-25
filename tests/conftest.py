@@ -1,6 +1,6 @@
 # ruff: noqa: PD901
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -39,3 +39,24 @@ def mocked_pandas_read_sql_query():
     with patch.object(pd, "read_sql_query") as mocked_method:
         mocked_method.return_value = df
         yield df
+
+
+@pytest.fixture
+def mock_s3_client(mocker):
+    mock_client = MagicMock()
+    mocker.patch("boto3.client", return_value=mock_client)
+    return mock_client
+
+
+@pytest.fixture
+def mock_paginator(mock_s3_client):
+    paginator = MagicMock()
+    mock_s3_client.get_paginator.return_value = paginator
+    return paginator
+
+
+@pytest.fixture
+def s3_object_body():
+    body = MagicMock()
+    body.read.return_value = b"file content"
+    return body

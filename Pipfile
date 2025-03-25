@@ -17,6 +17,8 @@ pytest = "*"
 ruff = "*"
 ipython = "*"
 pandas-stubs = "*"
+boto3-stubs = {extras = ["s3"], version = "*"}
+pytest-mock = "*"
 
 [requires]
 python_version = "3.12"
