@@ -53,6 +53,16 @@ docker run -p 9000:8080 validator:latest lambdas.<a-different-module>.lambda_han
 ```shell
 SENTRY_DSN=### If set to a valid Sentry DSN, enables Sentry exception monitoring. This is not needed for local development.
 WORKSPACE=### Set to `dev` for local development, this will be set to `stage` and `prod` in those environments by Terraform.
+AWS_ATHENA_DATABASE=### Athena database to query for S3 Inventory data 
+AWS_ATHENA_WORK_GROUP=### Athena workgroup to use for queries
+```
+
+### Optional
+
+```shell
+WARNING_ONLY_LOGGERS=### Optionally set "WARNING" logging level for comma seperated list of libraries; e.g. asyncio,botocore,urllib3,s3transfer,boto3
+INTEGRATION_TEST_BUCKET=### [Integration tests] Bucket to use for integration testing
+INTEGRATION_TEST_PREFIX=### [Integration tests] Prefix for any uploaded AIPs as part of integration testing
 ```
 
 ## Related Assets
