@@ -38,10 +38,10 @@ class AthenaClient:
         logger.debug(f"SQLAlchemy engine created: {engine}")
         return engine
 
-    def query(self, query_string: str) -> pd.DataFrame:
+    def query(self, query_string: str, parameters: dict | None = None) -> pd.DataFrame:
         """Perform an Athena query."""
         t0 = time.time()
         with self.engine.connect() as conn:
-            results_df = pd.read_sql_query(query_string, conn)
+            results_df = pd.read_sql_query(query_string, conn, params=parameters)
             logger.debug(f"Athena query elapsed: {time.time() - t0}")
             return results_df

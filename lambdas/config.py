@@ -16,7 +16,12 @@ class Config:
         "AWS_ATHENA_WORK_GROUP",
         "AWS_ATHENA_DATABASE",
     )
-    OPTIONAL_ENV_VARS = ("AWS_DEFAULT_REGION",)
+    OPTIONAL_ENV_VARS = (
+        "AWS_DEFAULT_REGION",
+        "WARNING_ONLY_LOGGERS",
+        "INTEGRATION_TEST_BUCKET",
+        "INTEGRATION_TEST_PREFIX",
+    )
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Provide dot notation access to configurations and env vars on this class."""
