@@ -177,6 +177,7 @@ class TestAIP:
         assert "data/file2.txt" in str(excinfo.value)
 
 
+@pytest.mark.integration
 class TestAIPIntegration:
     """Integration tests for the AIP class that validate S3 operations."""
 
@@ -224,7 +225,6 @@ class TestAIPIntegration:
 
         return _upload_aip
 
-    @pytest.mark.integration
     def test_aip_validate_success(self, setup_s3_aip, integration_prefix):
         """Test successful validation of a valid AIP."""
         s3_uri = setup_s3_aip("tests/fixtures/aips/valid-aip")
@@ -247,7 +247,6 @@ class TestAIPIntegration:
         assert result.s3_uri == s3_uri
         assert result.error is None
 
-    @pytest.mark.integration
     def test_aip_fails_validate_inventory_data_not_found(
         self, setup_s3_aip, integration_prefix
     ):
@@ -305,7 +304,6 @@ class TestAIPIntegration:
         ],
         ids=["missing-file-in-aip", "missing-file-in-manifest", "checksum-mismatch"],
     )
-    @pytest.mark.integration
     def test_aip_validation_failures(self, setup_s3_aip, integration_prefix, test_case):
         """Parameterized test for various validation failure scenarios."""
         fixture_path = test_case["fixture_path"]

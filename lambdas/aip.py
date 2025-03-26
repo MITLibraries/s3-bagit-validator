@@ -2,6 +2,7 @@ import base64
 import binascii
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass
 from time import perf_counter
 
@@ -93,7 +94,7 @@ class AIP:
 
         try:
             self._check_aip_s3_folder_exists()
-            self.manifest_df = self._parse_manifest()
+            self.manifest_df = self._parse_aip_manifest()
             self.files = self._get_aip_files()
             self._check_aip_files_match_manifest()
             self.s3_inventory = self._get_aip_s3_inventory()
@@ -121,7 +122,7 @@ class AIP:
         if not self.s3_client.folder_exists(self.s3_uri):
             raise AIPValidationError(f"Bagit AIP folder not found in S3: {self.s3_uri}")
 
-    def _parse_manifest(self) -> pd.DataFrame:
+    def _parse_aip_manifest(self) -> pd.DataFrame:
         """Read manifest-sha256.txt from AIP."""
         manifest_data = self.s3_client.read_s3_object(
             f"{self.s3_uri}/manifest-sha256.txt"
@@ -129,8 +130,7 @@ class AIP:
         lines = manifest_data.strip().split("\n")
         data = []
         for line in lines:
-            columns = line.split("  ", 1)
-            checksum, filepath = columns
+            checksum, filepath = re.split(r"\s{2}", line, maxsplit=1)
             data.append({"checksum": checksum, "filepath": filepath})
         return pd.DataFrame(data)
 
