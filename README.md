@@ -16,21 +16,21 @@ AWS Lambda to validate a [Bagit](https://www.ietf.org/rfc/rfc8493.txt) bag store
 
 - Build the container:
 
-  ```bash
-  docker build -t validator:latest .
-  ```
+```bash
+docker build -t validator:latest .
+```
 
 - Run the default handler for the container:
 
-  ```bash
-  docker run -e WORKSPACE=dev -p 9000:8080 validator:latest
-  ```
+```bash
+docker run --env-file .env -p 9000:8080 validator:latest
+```
 
 - Post to the container:
 
-  ```bash
-  curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
-  ```
+```bash
+curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+```
 
 - Observe output:
 
@@ -55,6 +55,7 @@ SENTRY_DSN=### If set to a valid Sentry DSN, enables Sentry exception monitoring
 WORKSPACE=### Set to `dev` for local development, this will be set to `stage` and `prod` in those environments by Terraform.
 AWS_ATHENA_DATABASE=### Athena database to query for S3 Inventory data 
 AWS_ATHENA_WORK_GROUP=### Athena workgroup to use for queries
+CHALLENGE_SECRET=### Secret string that is passed as part of lambda invocation payload and checked before running
 ```
 
 ### Optional

@@ -15,6 +15,7 @@ class Config:
         "SENTRY_DSN",
         "AWS_ATHENA_WORK_GROUP",
         "AWS_ATHENA_DATABASE",
+        "CHALLENGE_SECRET",
     )
     OPTIONAL_ENV_VARS = (
         "AWS_DEFAULT_REGION",
@@ -40,13 +41,6 @@ class Config:
     @property
     def aws_region(self) -> str:
         return self.AWS_DEFAULT_REGION or "us-east-1"
-
-
-def check_verbosity(verbose: bool | str) -> bool:
-    """Determine whether verbose is True or False given a boolean or string value."""
-    if isinstance(verbose, bool):
-        return verbose
-    return verbose.lower() == "true"
 
 
 def configure_logger(

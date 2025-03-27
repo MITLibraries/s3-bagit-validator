@@ -13,6 +13,7 @@ from lambdas.utils.aws.athena import AthenaClient
 def _test_env(monkeypatch, request):
     monkeypatch.setenv("WORKSPACE", "test")
     monkeypatch.setenv("SENTRY_DSN", "None")
+    monkeypatch.setenv("CHALLENGE_SECRET", "i-am-secret")
 
     # do not set for integration tests
     if not request.node.get_closest_marker("integration"):
