@@ -66,7 +66,7 @@ class TestParsePayload:
         assert payload.verbose is False
 
     def test_parse_payload_invalid_raises_value_error(self):
-        event = {"body": json.dumps({"wrong_param": "value"})}
+        event = {"msg": "in a bottle"}
         with pytest.raises(ValueError, match="Invalid input payload:"):
             validator.parse_payload(event)
 
