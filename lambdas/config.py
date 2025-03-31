@@ -22,6 +22,7 @@ class Config:
         "WARNING_ONLY_LOGGERS",
         "INTEGRATION_TEST_BUCKET",
         "INTEGRATION_TEST_PREFIX",
+        "CHECKSUM_NUM_WORKERS",
     )
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
@@ -41,6 +42,19 @@ class Config:
     @property
     def aws_region(self) -> str:
         return self.AWS_DEFAULT_REGION or "us-east-1"
+
+    @property
+    def checksum_num_workers(self) -> int:
+        """Number of parallel workers to retrieve / generate checksums for AIP files.
+
+        256 threads may seem like a considerably high number, but it's worth remembering
+        these are effectively just HTTP requests to S3 which is designed to handle that
+        kind of parallelism, and then very little work on the application side to handle
+        the returning data.  Time speed-ups seem almost linear with number of threads.
+        """
+        if self.CHECKSUM_NUM_WORKERS:
+            return int(self.CHECKSUM_NUM_WORKERS)
+        return 256
 
 
 def configure_logger(
@@ -69,6 +83,11 @@ def configure_logger(
     if warning_only_loggers:
         for name in warning_only_loggers.split(","):
             logging.getLogger(name).setLevel(logging.WARNING)
+
+    # Clear any existing handlers to prevent duplication in AWS Lambda environment
+    # where container may be reused between invocations
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
 
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter(logging_format))

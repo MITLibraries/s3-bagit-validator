@@ -176,6 +176,51 @@ class TestAIP:
         assert "Mismatched checksums for files" in str(excinfo.value)
         assert "data/file2.txt" in str(excinfo.value)
 
+    def test_get_aip_file_checksums(self):
+        """Test that _get_aip_file_checksums correctly processes files in parallel."""
+        aip = AIP("s3://bucket/aip")
+
+        aip.manifest_df = pd.DataFrame(
+            [
+                {"filepath": "data/file1.txt", "checksum": "abc123"},
+                {"filepath": "data/file2.txt", "checksum": "def456"},
+                {"filepath": "data/file3.txt", "checksum": "ghi789"},
+            ]
+        )
+
+        aip.s3_inventory = pd.DataFrame(
+            [
+                {"key": "aip/data/file1.txt", "checksum_algorithm": "SHA256"},
+                {"key": "aip/data/file2.txt", "checksum_algorithm": "SHA256"},
+                {"key": "aip/data/file3.txt", "checksum_algorithm": "MD5"},
+            ]
+        ).set_index("key")
+
+        # Mock the S3Client methods
+        with patch("lambdas.utils.aws.s3.S3Client.get_checksum_for_object") as mock_get:
+            with patch(
+                "lambdas.utils.aws.s3.S3Client.generate_checksum_for_object"
+            ) as mock_generate:
+                with patch("lambdas.aip.AIP._decode_base64_sha256") as mock_decode:
+                    mock_get.side_effect = lambda _: "base64_checksum"
+                    mock_generate.side_effect = lambda _: "base64_checksum"
+                    mock_decode.return_value = "expected_checksum_xxxyyy111222"
+
+                    file_checksums = aip._get_aip_file_checksums(num_workers=2)
+
+        assert len(file_checksums) == 3
+        assert set(file_checksums.keys()) == {
+            "data/file1.txt",
+            "data/file2.txt",
+            "data/file3.txt",
+        }
+        for value in file_checksums.values():
+            assert value == "expected_checksum_xxxyyy111222"
+
+        assert mock_get.call_count == 2  # called for two existing SHA256 checksums
+        assert mock_generate.call_count == 1  # called for single MD5 checksum
+        assert mock_decode.call_count == 3
+
 
 @pytest.mark.integration
 class TestAIPIntegration:

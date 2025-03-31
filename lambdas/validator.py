@@ -17,6 +17,7 @@ class InputPayload:
     aip_s3_uri: str
     challenge_secret: str
     verbose: bool = False
+    num_workers: int = 4
 
 
 def lambda_handler(event: dict, _context: dict) -> dict:
@@ -48,7 +49,7 @@ def lambda_handler(event: dict, _context: dict) -> dict:
     # validate AIP
     aip = AIP(payload.aip_s3_uri)
     try:
-        result = aip.validate()
+        result = aip.validate(num_workers=payload.num_workers)
     except Exception as exc:  # noqa: BLE001
         logger.error(exc)  # noqa: TRY400
         return generate_error_response(str(exc), HTTPStatus.INTERNAL_SERVER_ERROR)
