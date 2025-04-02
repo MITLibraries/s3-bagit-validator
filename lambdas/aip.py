@@ -1,17 +1,22 @@
 import base64
 import binascii
+import concurrent.futures
 import json
 import logging
 import re
 from dataclasses import asdict, dataclass
+from threading import Lock
 from time import perf_counter
 
 import pandas as pd
 
+from lambdas.config import Config
 from lambdas.exceptions import AIPValidationError
 from lambdas.utils.aws import AthenaClient, S3Client
 
 logger = logging.getLogger(__name__)
+
+CONFIG = Config()
 
 
 @dataclass
@@ -72,7 +77,9 @@ class AIP:
             )
         return None
 
-    def validate(self) -> ValidationResponse:
+    def validate(
+        self, num_workers: int = CONFIG.checksum_num_workers
+    ) -> ValidationResponse:
         """Validate that AIP manifest files and checksums match the AIP in S3.
 
         Flow:
@@ -98,7 +105,7 @@ class AIP:
             self.files = self._get_aip_files()
             self._check_aip_files_match_manifest()
             self.s3_inventory = self._get_aip_s3_inventory()
-            self.file_checksums = self._get_aip_file_checksums()
+            self.file_checksums = self._get_aip_file_checksums(num_workers=num_workers)
             self._check_checksums()
 
             return ValidationResponse(
@@ -174,6 +181,7 @@ class AIP:
 
     def _get_aip_s3_inventory(self) -> pd.DataFrame:
         """Query S3 Inventory for list of files."""
+        logger.info("Retrieving S3 Inventory data via Athena")
         with open("lambdas/sql/s3_inventory.sql") as f:
             query_string = f.read()
         inventory_df = self.athena_client.query(
@@ -185,18 +193,22 @@ class AIP:
                 f"S3 Inventory data not found for S3 key: '{self.s3_key}'"
             )
 
-        return inventory_df
+        # index by file key and return
+        return inventory_df.set_index("key")
 
     @staticmethod
     def _decode_base64_sha256(base64_checksum: str | bytes) -> str:
         binary_checksum = base64.b64decode(base64_checksum)
         return binascii.hexlify(binary_checksum).decode("ascii")
 
-    def _get_aip_file_checksums(self) -> dict[str, str]:
+    def _get_aip_file_checksums(
+        self, num_workers: int = CONFIG.checksum_num_workers
+    ) -> dict[str, str]:
         """Retrieve checksums for all files listed in Bagit manifest.
 
         If a SHA256 checksum does not exist, generate one by copying the object onto
-        itself.
+        itself.  This process is performed in parallel via threads by the worker function
+        'process_file_worker' which updates a local dictionary of file-to-checksum.
         """
         if self.manifest_df is None:
             raise ValueError("Bagit manifest data not found")
@@ -204,23 +216,53 @@ class AIP:
             raise ValueError("S3 Inventory data not found")
 
         file_checksums = {}
-        s3_inventory_indexed = self.s3_inventory.set_index("key")
+        file_checksums_lock = Lock()
 
-        for _, row in self.manifest_df.iterrows():
+        def process_file_worker(row: pd.Series) -> None:
             filepath = row.filepath
-            logger.debug(f"Getting checksum for AIP file: {filepath}")
-
             s3_uri = f"{self.s3_uri}/{filepath}"
-            inventory_row = s3_inventory_indexed.loc[f"{self.s3_key}/{filepath}"]
+            inventory_row = self.s3_inventory.loc[  # type: ignore[union-attr]
+                f"{self.s3_key}/{filepath}"
+            ]
 
-            if "SHA256" not in inventory_row["checksum_algorithm"]:
+            # retrieve or generate SHA256
+            if inventory_row["checksum_algorithm"] != "SHA256":
                 base64_checksum = self.s3_client.generate_checksum_for_object(s3_uri)
             else:
                 base64_checksum = self.s3_client.get_checksum_for_object(s3_uri)
 
+            # convert base64 form to ascii
             checksum = self._decode_base64_sha256(base64_checksum)
-            logger.debug(f"Filepath '{filepath}', checksum '{checksum}'")
-            file_checksums[filepath] = checksum
+            logger.debug(f"AIP file: '{filepath}', checksum: '{checksum}'")
+
+            # save file:checksum dictionary
+            with file_checksums_lock:
+                file_checksums[filepath] = checksum
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(process_file_worker, row)
+                for _, row in self.manifest_df.iterrows()
+            ]
+
+            # report on futures as they complete, logging approximately each 10%
+            total_futures = len(futures)
+            completed = 0
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                    completed += 1
+                    if (
+                        completed % max(1, total_futures // 10) == 0
+                        or completed == total_futures
+                    ):
+                        logger.info(
+                            f"Processed {completed}/{total_futures} "
+                            f"files ({(completed / total_futures) * 100:.1f}%)"
+                        )
+                except Exception:
+                    logger.exception("Error getting checksum for file")
+                    raise
 
         return file_checksums
 
