@@ -252,7 +252,10 @@ class AIP:
                 try:
                     future.result()
                     completed += 1
-                    if completed % max(1, total_futures // 10) == 0:
+                    if (
+                        completed % max(1, total_futures // 10) == 0
+                        or completed == total_futures
+                    ):
                         logger.info(
                             f"Processed {completed}/{total_futures} "
                             f"files ({(completed / total_futures) * 100:.1f}%)"
