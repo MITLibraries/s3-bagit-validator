@@ -284,7 +284,7 @@ class TestAIPIntegration:
                         "checksum_algorithm": "NotHelpful",
                     }
                 ]
-            )
+            ).set_index("key")
             result = aip.validate()
 
         # Assertions
@@ -367,7 +367,7 @@ class TestAIPIntegration:
             )
 
         with patch.object(aip, "_get_aip_s3_inventory") as mocked_inventory:
-            mocked_inventory.return_value = pd.DataFrame(inventory_data)
+            mocked_inventory.return_value = pd.DataFrame(inventory_data).set_index("key")
             result = aip.validate()
 
         assert not result.valid
