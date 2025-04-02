@@ -240,31 +240,23 @@ class AIP:
                 file_checksums[filepath] = checksum
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # prepare futures of workers
             futures = [
                 executor.submit(process_file_worker, row)
                 for _, row in self.manifest_df.iterrows()
             ]
 
+            # report on futures as they complete, logging approximately each 10%
             total_futures = len(futures)
             completed = 0
-            progress_threshold = max(1, total_futures // 10)
-            next_threshold = progress_threshold
-
-            # loop through futures and respond as each completes
             for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result()
                     completed += 1
-                    if completed >= next_threshold or completed == total_futures:
+                    if completed % max(1, total_futures // 10) == 0:
                         logger.info(
                             f"Processed {completed}/{total_futures} "
                             f"files ({(completed / total_futures) * 100:.1f}%)"
                         )
-                        next_threshold = min(
-                            total_futures, completed + progress_threshold
-                        )
-
                 except Exception:
                     logger.exception("Error getting checksum for file")
                     raise
