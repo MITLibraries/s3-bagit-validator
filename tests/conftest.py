@@ -14,15 +14,15 @@ def _test_env(monkeypatch, request):
     monkeypatch.setenv("WORKSPACE", "test")
     monkeypatch.setenv("SENTRY_DSN", "None")
     monkeypatch.setenv("CHALLENGE_SECRET", "i-am-secret")
-    monkeypatch.setenv(
-        "S3_INVENTORY_LOCATIONS",
-        "s3://my-bucket/inventory/area-1,s3://my-bucket/inventory/area-2,s3://my-bucket/inventory/thing-3",
-    )
 
     # do not set for integration tests
     if not request.node.get_closest_marker("integration"):
         monkeypatch.setenv("AWS_ATHENA_WORK_GROUP", "default")
         monkeypatch.setenv("AWS_ATHENA_DATABASE", "my-athena-db")
+        monkeypatch.setenv(
+            "S3_INVENTORY_LOCATIONS",
+            "s3://my-bucket/inventory/area-1,s3://my-bucket/inventory/area-2,s3://my-bucket/inventory/thing-3",
+        )
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ def mock_inventory_data():
             {"key": "aip/data/file2.txt", "checksum_algorithm": "SHA256"},
         ]
     )
-    with patch("lambdas.utils.aws.AthenaClient.query") as mock_query:
+    with patch("lambdas.utils.aws.S3InventoryClient.get_aip_inventory") as mock_query:
         mock_query.return_value = df
         yield mock_query
 

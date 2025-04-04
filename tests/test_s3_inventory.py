@@ -325,3 +325,24 @@ class TestS3InventoryClientAIPOperations:
             ValueError, match="Either 'aip_uuid' or 'aip_s3_uri' required"
         ):
             client.get_aip_inventory()
+
+
+@pytest.mark.integration
+class TestS3InventoryClientIntegration:
+
+    def test_retrieval_of_inventory_aips(self):
+        client = S3InventoryClient()
+        aips_df = client.get_aips_df()
+        assert isinstance(aips_df, pd.DataFrame)
+
+    def test_retrieval_of_aip_inventory(self):
+        """Test retrieval of Inventory data for a single AIP.
+
+        To avoid hardcoding a UUID that might differ in different contexts, this assumes
+        the first row in the AIPs retrieved from get_aips_df() has an inventory to
+        retrieve.
+        """
+        client = S3InventoryClient()
+        aips_df = client.get_aips_df()
+        aip_inventory_df = client.get_aip_inventory(aip_uuid=aips_df.iloc[0].aip_uuid)
+        assert isinstance(aip_inventory_df, pd.DataFrame)
