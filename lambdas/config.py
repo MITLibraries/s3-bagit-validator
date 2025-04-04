@@ -99,6 +99,24 @@ def configure_logger(
     )
 
 
+def setup_dev_logging(
+    warning_only_loggers: str = ",".join(
+        [
+            "asyncio",
+            "botocore",
+            "urllib3",
+            "s3transfer",
+            "boto3",
+            "pyathena",
+        ]
+    ),
+) -> None:
+    """Invoke to setup DEBUG level console logging for development work."""
+    os.environ["WARNING_ONLY_LOGGERS"] = warning_only_loggers
+    root_logger = logging.getLogger()
+    configure_logger(root_logger, verbose=True)
+
+
 def configure_sentry() -> None:
     CONFIG = Config()  # noqa: N806
     env = CONFIG.WORKSPACE
