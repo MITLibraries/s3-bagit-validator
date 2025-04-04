@@ -56,6 +56,7 @@ WORKSPACE=### Set to `dev` for local development, this will be set to `stage` an
 AWS_ATHENA_DATABASE=### Athena database to query for S3 Inventory data 
 AWS_ATHENA_WORK_GROUP=### Athena workgroup to use for queries
 CHALLENGE_SECRET=### Secret string that is passed as part of lambda invocation payload and checked before running
+S3_INVENTORY_LOCATIONS=### Comma seperated list of S3 URIs that have S3 Inventory data for a particular bucket
 ```
 
 ### Optional

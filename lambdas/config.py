@@ -16,6 +16,7 @@ class Config:
         "AWS_ATHENA_WORK_GROUP",
         "AWS_ATHENA_DATABASE",
         "CHALLENGE_SECRET",
+        "S3_INVENTORY_LOCATIONS",
     )
     OPTIONAL_ENV_VARS = (
         "AWS_DEFAULT_REGION",
@@ -55,6 +56,13 @@ class Config:
         if self.CHECKSUM_NUM_WORKERS:
             return int(self.CHECKSUM_NUM_WORKERS)
         return 256
+
+    @property
+    def aip_s3_inventory_uris(self) -> list[str]:
+        return [
+            location.strip()
+            for location in os.environ["S3_INVENTORY_LOCATIONS"].split(",")
+        ]
 
 
 def configure_logger(
@@ -100,7 +108,7 @@ def configure_logger(
 
 
 def setup_dev_logging(
-    warning_only_loggers: str = ",".join(
+    warning_only_loggers: str = ",".join(  # noqa: FLY002
         [
             "asyncio",
             "botocore",
