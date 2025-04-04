@@ -13,8 +13,6 @@ class Config:
     REQUIRED_ENV_VARS = (
         "WORKSPACE",
         "SENTRY_DSN",
-        "AWS_ATHENA_WORK_GROUP",
-        "AWS_ATHENA_DATABASE",
         "CHALLENGE_SECRET",
         "S3_INVENTORY_LOCATIONS",
     )
@@ -115,7 +113,6 @@ def setup_dev_logging(
             "urllib3",
             "s3transfer",
             "boto3",
-            "pyathena",
         ]
     ),
 ) -> None:

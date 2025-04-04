@@ -181,7 +181,7 @@ class AIP:
 
     def _get_aip_s3_inventory(self) -> pd.DataFrame:
         """Query S3 Inventory for list of files."""
-        logger.info("Retrieving S3 Inventory data via Athena")
+        logger.info("Retrieving S3 Inventory data")
         inventory_df = self.s3_inventory_client.get_aip_inventory(aip_s3_key=self.s3_key)
 
         if len(inventory_df) == 0:

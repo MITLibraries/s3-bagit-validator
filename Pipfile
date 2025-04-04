@@ -5,7 +5,6 @@ name = "pypi"
 
 [packages]
 sentry-sdk = "*"
-pyathena = {extras = ["sqlalchemy"], version = "*"}
 pandas = "*"
 duckdb = "*"
 
