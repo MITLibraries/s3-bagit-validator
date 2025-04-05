@@ -172,14 +172,16 @@ class S3InventoryClient:
         cdps_aip_inventory_with_aip_uuid as (
             select
                 bucket,
+                -- extract the *first* UUID encountered in the key
                 case
-                    when key ~ '.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/.*)?$'
-                    then regexp_extract(key, '.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/.*)?$', 1)
+                    when key ~ '.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*'
+                    then regexp_extract(key, '.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*', 1)
                     else null
                 end as aip_uuid,
+                -- extract the inventory root as they key up until, and inclusive, of the first UUID
                 case
-                    when key ~ '.*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/.*)?$'
-                    then regexp_extract(key, '(.*?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', 1)
+                    when key ~ '.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*'
+                    then regexp_extract(key, '(.+?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*', 1)
                     else null
                 end as aip_s3_key,
                 key,
@@ -204,6 +206,10 @@ class S3InventoryClient:
         # ruff: enable: E501
 
         aips_df = self.query_inventory(query)
+
+        # integrity checks
+        if len(aips_df) == 0:
+            raise RuntimeError("No AIPs found in inventory data.")
 
         self._aips_df = aips_df
         return aips_df
