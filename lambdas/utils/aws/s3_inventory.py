@@ -114,6 +114,16 @@ class S3InventoryClient:
         parquet_files = self.get_all_inventory_parquet_files()
 
         with duckdb.connect() as conn:
+            # establish AWS credentials chain
+            conn.execute(
+                """
+            CREATE OR REPLACE SECRET aws_secret (
+                TYPE s3,
+                PROVIDER credential_chain,
+                CHAIN 'env;sso;process'
+            );
+            """
+            )
 
             # create inventory view
             conn.execute(

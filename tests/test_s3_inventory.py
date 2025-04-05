@@ -127,7 +127,6 @@ class TestS3InventoryClientQueries:
             result = client.query_inventory("SELECT * FROM inventory")
 
             mock_connect.assert_called_once()
-            mock_conn.execute.assert_called_once()
             mock_conn.query.assert_called_once_with(
                 "SELECT * FROM inventory", params=None
             )
