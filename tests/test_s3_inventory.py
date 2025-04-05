@@ -1,5 +1,6 @@
-# ruff: noqa: PD901, DTZ001, PLR2004, SLF001, ARG002
+# ruff: noqa: PD901, DTZ001, PLR2004, SLF001, ARG002, BLE001
 
+import concurrent.futures
 import datetime
 import os
 from unittest.mock import MagicMock, patch
@@ -346,3 +347,45 @@ class TestS3InventoryClientIntegration:
         aips_df = client.get_aips_df()
         aip_inventory_df = client.get_aip_inventory(aip_uuid=aips_df.iloc[0].aip_uuid)
         assert isinstance(aip_inventory_df, pd.DataFrame)
+
+    def test_concurrent_requests(self):
+        """Test to demonstrate this approach supports many, small, parallel requests."""
+        query = """
+        select
+            last_modified_date,
+            count(last_modified_date) as count
+        from inventory
+        group by last_modified_date
+        order by count(last_modified_date) desc
+        ;
+        """
+
+        # run a single query to get a baseline result
+        single_client = S3InventoryClient()
+        single_result = single_client.query_inventory(query)
+        assert isinstance(single_result, pd.DataFrame)
+        assert not single_result.empty
+
+        # setup 20 parallel client instances
+        num_clients = 20
+        clients = [S3InventoryClient() for _ in range(num_clients)]
+        results = []
+
+        # execute queries in parallel using threads
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_clients) as executor:
+            futures = [
+                executor.submit(client.query_inventory, query) for client in clients
+            ]
+
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as exc:
+                    pytest.fail(f"Concurrent query failed with exception: {exc}")
+
+        assert len(results) == num_clients
+
+        # concatenate all results and veriy row count is equal to x20 a single response
+        combined_df = pd.concat(results)
+        assert len(combined_df) == len(single_result) * num_clients
