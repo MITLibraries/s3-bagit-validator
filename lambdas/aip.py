@@ -9,6 +9,7 @@ from threading import Lock
 from time import perf_counter
 
 import pandas as pd
+from botocore.exceptions import ClientError
 
 from lambdas.config import Config
 from lambdas.exceptions import AIPValidationError
@@ -131,9 +132,15 @@ class AIP:
 
     def _parse_aip_manifest(self) -> pd.DataFrame:
         """Read manifest-sha256.txt from AIP."""
-        manifest_data = self.s3_client.read_s3_object(
-            f"{self.s3_uri}/manifest-sha256.txt"
-        )
+        try:
+            manifest_data = self.s3_client.read_s3_object(
+                f"{self.s3_uri}/manifest-sha256.txt"
+            )
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "NoSuchKey":
+                raise AIPValidationError(
+                    "Could not find 'manifest-sha256.txt' for AIP."
+                ) from exc
         lines = manifest_data.strip().split("\n")
         data = []
         for line in lines:

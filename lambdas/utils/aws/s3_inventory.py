@@ -111,40 +111,41 @@ class S3InventoryClient:
     ) -> pd.DataFrame:
         """Perform SQL query against Inventory parquet files via DuckDB."""
         start_time = time.perf_counter()
-        parquet_files = self.get_all_inventory_parquet_files()
-
         with duckdb.connect() as conn:
-            # establish AWS credentials chain
-            conn.execute(
-                """
-            CREATE OR REPLACE SECRET aws_secret (
-                TYPE s3,
-                PROVIDER credential_chain,
-                CHAIN 'env;sso;process'
-            );
-            """
-            )
-
-            # create inventory view
-            conn.execute(
-                f"""
-            create view inventory as (
-                select
-                    *,
-                    filename
-                from read_parquet(
-                    {parquet_files},
-                    filename=true
-                )
-            );
-            """
-            )
-
-            # perform query
+            self._duckdb_set_aws_credentials(conn)
+            self._duckdb_create_inventory_view(conn)
             results_df = conn.query(query, params=params).to_df()
-
             logger.debug(f"Inventory query elapsed: {time.perf_counter() - start_time}")
             return results_df
+
+    def _duckdb_set_aws_credentials(self, conn: duckdb.DuckDBPyConnection) -> None:
+        """Create AWS credentials secret to handle env or SSO credentials chain."""
+        conn.execute(
+            """
+        CREATE OR REPLACE SECRET aws_secret (
+            TYPE s3,
+            PROVIDER credential_chain,
+            CHAIN 'env;sso;process'
+        );
+        """
+        )
+
+    def _duckdb_create_inventory_view(self, conn: duckdb.DuckDBPyConnection) -> None:
+        """Create DuckDB view from all identified Inventory parquet files."""
+        parquet_files = self.get_all_inventory_parquet_files()
+        conn.execute(
+            f"""
+                    create view inventory as (
+                        select
+                            *,
+                            filename
+                        from read_parquet(
+                            {parquet_files},
+                            filename=true
+                        )
+                    );
+                    """
+        )
 
     def get_aips_df(self) -> pd.DataFrame:
         """Get DataFrame of all AIPs in S3 Inventory.
@@ -232,7 +233,7 @@ class S3InventoryClient:
         aip_uuid: str | None = None,
         aip_s3_key: str | None = None,
     ) -> pd.DataFrame:
-        """Retrieve S3 Inventory data for a single AIP.
+        """Retrieve S3 Inventory data for a single AIP by UUID or S3 key prefix.
 
         Args:
             aip_uuid: str, AIP UUID
