@@ -3,6 +3,7 @@ import json
 from http import HTTPStatus
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
 from lambdas import validator
@@ -26,13 +27,9 @@ class TestInputPayload:
         )
         assert payload.aip_s3_uri == "s3://bucket/aip"
         assert payload.challenge_secret == "mysecret"
+        assert payload.action == "validate"
         assert payload.verbose is False
-
-    def test_init_with_verbose_true(self):
-        payload = validator.InputPayload(
-            aip_s3_uri="s3://bucket/aip", challenge_secret="mysecret", verbose=True
-        )
-        assert payload.verbose is True
+        assert payload.num_workers is None
 
 
 class TestParsePayload:
@@ -52,6 +49,7 @@ class TestParsePayload:
         assert payload.aip_s3_uri == "s3://bucket/aip"
         assert payload.challenge_secret == "mysecret"
         assert payload.verbose is True
+        assert payload.action == "validate"
 
     def test_parse_payload_from_direct_event(self):
         event = {
@@ -64,6 +62,29 @@ class TestParsePayload:
         assert payload.aip_s3_uri == "s3://bucket/aip"
         assert payload.challenge_secret == "mysecret"
         assert payload.verbose is False
+
+    def test_parse_payload_with_aip_uuid(self):
+        event = {
+            "aip_uuid": "123e4567-e89b-12d3-a456-426614174000",
+            "challenge_secret": "mysecret",
+        }
+
+        payload = validator.parse_payload(event)
+        assert payload.aip_uuid == "123e4567-e89b-12d3-a456-426614174000"
+        assert payload.aip_s3_uri is None
+        assert payload.challenge_secret == "mysecret"
+
+    def test_parse_payload_with_ping_action(self):
+        event = {
+            "action": "ping",
+            "challenge_secret": "mysecret",
+        }
+
+        payload = validator.parse_payload(event)
+        assert payload.action == "ping"
+        assert payload.aip_s3_uri is None
+        assert payload.aip_uuid is None
+        assert payload.challenge_secret == "mysecret"
 
     def test_parse_payload_invalid_raises_value_error(self):
         event = {"msg": "in a bottle"}
@@ -107,7 +128,7 @@ class TestResponseGeneration:
 
 
 class TestLambdaHandler:
-    def test_lambda_handler_success(self):
+    def test_lambda_handler_success_with_s3_uri(self):
         event = {
             "aip_s3_uri": "s3://bucket/aip",
             "challenge_secret": "i-am-secret",
@@ -119,6 +140,7 @@ class TestLambdaHandler:
             manifest={"data/file1.txt": "abc123"},
         )
         with patch("lambdas.validator.AIP") as mock_aip_class:
+            mock_aip_class.from_s3_uri.return_value = mock_aip_class()
             mock_aip_instance = mock_aip_class.return_value
             mock_aip_instance.validate.return_value = mock_result
             response = validator.lambda_handler(event, {})
@@ -129,6 +151,45 @@ class TestLambdaHandler:
         assert body["valid"] is True
         assert body["s3_uri"] == "s3://bucket/aip"
         assert body["manifest"] == {"data/file1.txt": "abc123"}
+
+    def test_lambda_handler_success_with_uuid(self):
+        event = {
+            "aip_uuid": "123e4567-e89b-12d3-a456-426614174000",
+            "challenge_secret": "i-am-secret",
+        }
+        mock_result = ValidationResponse(
+            s3_uri="s3://bucket/aip",
+            valid=True,
+            elapsed=1.5,
+            manifest={"data/file1.txt": "abc123"},
+        )
+        with patch("lambdas.validator.AIP") as mock_aip_class:
+            mock_aip_class.from_uuid.return_value = mock_aip_class()
+            mock_aip_instance = mock_aip_class.return_value
+            mock_aip_instance.validate.return_value = mock_result
+            response = validator.lambda_handler(event, {})
+
+        assert response["statusCode"] == HTTPStatus.OK
+        body = json.loads(response["body"])
+        assert body["valid"] is True
+        assert body["s3_uri"] == "s3://bucket/aip"
+
+    def test_lambda_handler_ping_action(self):
+        event = {
+            "action": "ping",
+            "challenge_secret": "i-am-secret",
+        }
+        with patch("lambdas.validator.S3InventoryClient") as mock_s3_inventory_client:
+            mock_instance = mock_s3_inventory_client.return_value
+            mock_instance.query_inventory.return_value = pd.DataFrame(
+                [{"inventory_count": 42}]
+            )
+            response = validator.lambda_handler(event, {})
+
+        assert response["statusCode"] == HTTPStatus.OK
+        body = json.loads(response["body"])
+        assert body["response"] == "pong"
+        assert "inventory_query_test" in body
 
     def test_lambda_handler_invalid_payload(self):
         event = {"invalid": "payload"}
@@ -144,3 +205,12 @@ class TestLambdaHandler:
             json.loads(response["body"])["error"]
             == "Challenge secret missing or mismatch."
         )
+
+    def test_lambda_handler_invalid_action(self):
+        event = {
+            "action": "invalid-action",
+            "challenge_secret": "i-am-secret",
+        }
+        response = validator.lambda_handler(event, {})
+        assert response["statusCode"] == HTTPStatus.BAD_REQUEST
+        assert "action not recognized" in json.loads(response["body"])["error"]

@@ -8,5 +8,8 @@ RUN pip3 install pipenv
 RUN pipenv requirements > requirements.txt
 RUN pip3 install -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
-# Default handler. See README for how to override to a different handler.
+# Set environment variables required by DuckDB
+ENV HOME=/tmp
+ENV TZ=UTC
+
 CMD [ "lambdas.validator.lambda_handler" ]

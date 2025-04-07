@@ -22,6 +22,8 @@ class Config:
         "INTEGRATION_TEST_BUCKET",
         "INTEGRATION_TEST_PREFIX",
         "CHECKSUM_NUM_WORKERS",
+        "AIP_VALIDATOR_ENDPOINT",
+        "LAMBDA_MAX_CONCURRENCY",
     )
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
@@ -61,6 +63,10 @@ class Config:
             location.strip()
             for location in os.environ["S3_INVENTORY_LOCATIONS"].split(",")
         ]
+
+    @property
+    def lambda_endpoint_url(self) -> str:
+        return self.AIP_VALIDATOR_ENDPOINT
 
 
 def configure_logger(

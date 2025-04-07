@@ -1,0 +1,3 @@
+aip_uuid,aip_s3_uri
+test-uuid-1,
+,s3://bucket/test-uri-2
