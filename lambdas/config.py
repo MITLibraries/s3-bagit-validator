@@ -105,7 +105,7 @@ def configure_logger(
     )
 
 
-def setup_dev_logging(
+def configure_dev_logger(
     warning_only_loggers: str = ",".join(  # noqa: FLY002
         [
             "asyncio",

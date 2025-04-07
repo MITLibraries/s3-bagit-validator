@@ -100,7 +100,10 @@ class S3InventoryClient:
                 "Could not find any parquet files for configured Inventories."
             )
 
-        logger.debug(f"Inventory parquet files found: {time.perf_counter()-start_time}")
+        logger.debug(
+            f"{len(inventory_parquet_files)} inventory parquet files found, "
+            f"elapsed: {time.perf_counter()-start_time}"
+        )
         self._inventory_parquet_files = inventory_parquet_files
         return inventory_parquet_files
 
@@ -151,7 +154,19 @@ class S3InventoryClient:
         """Get DataFrame of all AIPs in S3 Inventory.
 
         This data is particularly helpful for mapping an AIP UUID to the precise S3 URI
-        for that AIP.
+        for that AIP.  To do this, the AIP UUID -- which is minted in Archivematica -- is
+        extracted from the S3 key.
+
+        Example s3 key for an AIP:
+        5b33/1bf3/eb1f/4017/bbe8/c24a/9f60/f4cd/2014_039_002-5b331bf3-eb1f-4017-bbe8-c24a9f60f4cd
+
+        Where the UUID can be seen as both part of the leading pairtree path and at the
+        end of the key:
+        5b331bf3-eb1f-4017-bbe8-c24a9f60f4cd
+
+        The following regex is used in this DuckDB SQL query to find a valid UUID in the
+        S3 key:
+        [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 
         The dataframe includes information such as:
             - AIP UUID
