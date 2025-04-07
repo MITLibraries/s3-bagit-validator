@@ -9,10 +9,11 @@ from threading import Lock
 from time import perf_counter
 
 import pandas as pd
+from botocore.exceptions import ClientError
 
 from lambdas.config import Config
 from lambdas.exceptions import AIPValidationError
-from lambdas.utils.aws import AthenaClient, S3Client
+from lambdas.utils.aws import S3Client, S3InventoryClient
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class AIP:
         self.s3_bucket, self.s3_key = S3Client.parse_s3_uri(self.s3_uri)
 
         self.s3_client = S3Client()
-        self.athena_client = AthenaClient()
+        self.s3_inventory_client = S3InventoryClient()
 
         self.manifest_df: pd.DataFrame | None = None
         self.files: list[str] | None = None
@@ -131,9 +132,15 @@ class AIP:
 
     def _parse_aip_manifest(self) -> pd.DataFrame:
         """Read manifest-sha256.txt from AIP."""
-        manifest_data = self.s3_client.read_s3_object(
-            f"{self.s3_uri}/manifest-sha256.txt"
-        )
+        try:
+            manifest_data = self.s3_client.read_s3_object(
+                f"{self.s3_uri}/manifest-sha256.txt"
+            )
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] == "NoSuchKey":
+                raise AIPValidationError(
+                    "Could not find 'manifest-sha256.txt' for AIP."
+                ) from exc
         lines = manifest_data.strip().split("\n")
         data = []
         for line in lines:
@@ -181,19 +188,15 @@ class AIP:
 
     def _get_aip_s3_inventory(self) -> pd.DataFrame:
         """Query S3 Inventory for list of files."""
-        logger.info("Retrieving S3 Inventory data via Athena")
-        with open("lambdas/sql/s3_inventory.sql") as f:
-            query_string = f.read()
-        inventory_df = self.athena_client.query(
-            query_string, {"s3_key_prefix": f"{self.s3_key}/data/%"}
-        )
+        logger.info("Retrieving S3 Inventory data")
+        inventory_df = self.s3_inventory_client.get_aip_inventory(aip_s3_key=self.s3_key)
 
         if len(inventory_df) == 0:
             raise AIPValidationError(
                 f"S3 Inventory data not found for S3 key: '{self.s3_key}'"
             )
 
-        # index by file key and return
+        # index by S3 key
         return inventory_df.set_index("key")
 
     @staticmethod
