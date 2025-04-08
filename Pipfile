@@ -4,23 +4,29 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-sentry-sdk = "*"
-pandas = "*"
+click = "*"
 duckdb = "*"
 boto3 = "*"
+pandas = "*"
+requests = "*"
+sentry-sdk = "*"
 
 [dev-packages]
 black = "*"
+boto3-stubs = {extras = ["s3"], version = "*"}
 coveralls = "*"
+ipython = "*"
 mypy = "*"
+pandas-stubs = "*"
 pre-commit = "*"
 pytest = "*"
-ruff = "*"
-ipython = "*"
-pandas-stubs = "*"
-boto3-stubs = {extras = ["s3"], version = "*"}
 pytest-mock = "*"
+ruff = "*"
 setuptools = "*"
+types-requests = "*"
 
 [requires]
 python_version = "3.12"
+
+[scripts]
+cli = "python -c \"from lambdas.cli import cli; cli()\""

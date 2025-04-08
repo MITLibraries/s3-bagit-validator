@@ -8,10 +8,13 @@ from lambdas.config import Config, configure_sentry
 
 def test_config_configures_sentry_if_dsn_present(caplog, monkeypatch):
     monkeypatch.setenv("SENTRY_DSN", "https://1234567890@00000.ingest.sentry.io/123456")
-    configure_sentry()
-    assert (
-        "Sentry DSN found, exceptions will be sent to Sentry with env=test" in caplog.text
-    )
+    with patch("sentry_sdk.init") as mock_init:
+        configure_sentry()
+        mock_init.assert_called_once()
+        assert (
+            "Sentry DSN found, exceptions will be sent to Sentry with env=test"
+            in caplog.text
+        )
 
 
 def test_config_doesnt_configure_sentry_if_dsn_not_present(caplog, monkeypatch):

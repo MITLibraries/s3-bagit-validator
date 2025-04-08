@@ -48,12 +48,16 @@ class ValidationResponse:
 class AIP:
     """Class to represent and validate a Bagit AIP stored in S3."""
 
-    def __init__(self, s3_uri: str):
+    def __init__(
+        self,
+        s3_uri: str,
+        s3_inventory_client: S3InventoryClient | None = None,
+    ):
         self.s3_uri = s3_uri.removesuffix("/")
         self.s3_bucket, self.s3_key = S3Client.parse_s3_uri(self.s3_uri)
 
         self.s3_client = S3Client()
-        self.s3_inventory_client = S3InventoryClient()
+        self.s3_inventory_client = s3_inventory_client or S3InventoryClient()
 
         self.manifest_df: pd.DataFrame | None = None
         self.files: list[str] | None = None
@@ -78,9 +82,22 @@ class AIP:
             )
         return None
 
-    def validate(
-        self, num_workers: int = CONFIG.checksum_num_workers
-    ) -> ValidationResponse:
+    @classmethod
+    def from_s3_uri(cls, s3_uri: str) -> "AIP":
+        """Init AIP validator from AIP S3 URI."""
+        return cls(s3_uri=s3_uri)
+
+    @classmethod
+    def from_uuid(cls, aip_uuid: str) -> "AIP":
+        """Init AIP validator from AIP UUID.
+
+        An instance of the S3InventoryClient is passed to reuse any cached query results.
+        """
+        s3_inventory_client = S3InventoryClient()
+        aip = s3_inventory_client.get_aip_from_uuid(aip_uuid)
+        return cls(s3_uri=aip.aip_s3_uri, s3_inventory_client=s3_inventory_client)
+
+    def validate(self, num_workers: int | None = None) -> ValidationResponse:
         """Validate that AIP manifest files and checksums match the AIP in S3.
 
         Flow:
@@ -99,6 +116,9 @@ class AIP:
         caught and a response is returned, otherwise a success response is returned.
         """
         start_time = perf_counter()
+
+        if not num_workers:
+            num_workers = CONFIG.checksum_num_workers
 
         try:
             self._check_aip_s3_folder_exists()

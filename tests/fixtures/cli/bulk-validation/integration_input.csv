@@ -1,0 +1,3 @@
+aip_uuid,aip_s3_uri
+valid-integration-uuid-1,
+,s3://integration-bucket/path/to/valid/aip

@@ -5,6 +5,7 @@ from http import HTTPStatus
 
 from lambdas.aip import AIP
 from lambdas.config import Config, configure_logger
+from lambdas.utils.aws import S3InventoryClient
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -14,10 +15,12 @@ CONFIG = Config()
 
 @dataclass
 class InputPayload:
-    aip_s3_uri: str
     challenge_secret: str
+    action: str = "validate"
+    aip_s3_uri: str | None = None
+    aip_uuid: str | None = None
     verbose: bool = False
-    num_workers: int = 4
+    num_workers: int | None = None
 
 
 def lambda_handler(event: dict, _context: dict) -> dict:
@@ -25,7 +28,7 @@ def lambda_handler(event: dict, _context: dict) -> dict:
 
     This entrypoint handles a direct invocation (e.g. boto3) or an invocation via an HTTP
     request (e.g. ALB or Function URL).  Once the input payload is parsed, and the
-    challenge secret verified, the AIP class is used to perform validation.
+    challenge secret verified, the requested 'action' is performed.
     """
     CONFIG.check_required_env_vars()
 
@@ -46,21 +49,17 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         logger.error(exc)  # noqa: TRY400
         return generate_error_response(str(exc), HTTPStatus.UNAUTHORIZED)
 
-    # validate AIP
-    aip = AIP(payload.aip_s3_uri)
-    try:
-        result = aip.validate(num_workers=payload.num_workers)
-    except Exception as exc:  # noqa: BLE001
-        logger.error(exc)  # noqa: TRY400
-        return generate_error_response(str(exc), HTTPStatus.INTERNAL_SERVER_ERROR)
+    # perform requested action
+    if payload.action == "ping":
+        return ping()
 
-    return generate_result_response(result.to_dict())
+    if payload.action == "validate":
+        return validate(payload)
 
-
-def validate_secret(challenge_secret: str | None) -> None:
-    """Check that secret passed with lambda invocation matches secret env var."""
-    if not challenge_secret or challenge_secret.strip() != CONFIG.CHALLENGE_SECRET:
-        raise RuntimeError("Challenge secret missing or mismatch.")
+    return generate_error_response(
+        f"action not recognized: '{payload.action}'",
+        HTTPStatus.BAD_REQUEST,
+    )
 
 
 def parse_payload(event: dict) -> InputPayload:
@@ -74,11 +73,19 @@ def parse_payload(event: dict) -> InputPayload:
     body = json.loads(event["body"]) if "requestContext" in event else event
 
     try:
-        return InputPayload(**body)
+        return InputPayload(
+            **body,
+        )
     except Exception as exc:
         message = f"Invalid input payload: {exc}"
         logger.error(message)  # noqa: TRY400
         raise ValueError(message) from exc
+
+
+def validate_secret(challenge_secret: str | None) -> None:
+    """Check that secret passed with lambda invocation matches secret env var."""
+    if not challenge_secret or challenge_secret.strip() != CONFIG.CHALLENGE_SECRET:
+        raise RuntimeError("Challenge secret missing or mismatch.")
 
 
 def generate_error_response(
@@ -111,3 +118,37 @@ def generate_result_response(response: dict) -> dict:
         "isBase64Encoded": False,
         "body": json.dumps(response),
     }
+
+
+def ping() -> dict:
+    """Return simple 'pong' response."""
+    # test Inventory and DuckDB configurations; no exception is a pass
+    s3_inventory_client = S3InventoryClient()
+    count_df = s3_inventory_client.query_inventory(
+        """select count(*) as inventory_count from inventory;"""
+    )
+
+    return generate_result_response(
+        {
+            "response": "pong",
+            "inventory_query_test": count_df.to_dict(orient="records"),
+        }
+    )
+
+
+def validate(payload: InputPayload) -> dict:
+    """Validate a single AIP."""
+    if payload.aip_uuid and not payload.aip_s3_uri:
+        aip = AIP.from_uuid(payload.aip_uuid)
+    elif payload.aip_s3_uri:
+        aip = AIP.from_s3_uri(payload.aip_s3_uri)
+    else:
+        raise RuntimeError("Either AIP S3 URI or UUID is required.")
+
+    try:
+        result = aip.validate(num_workers=payload.num_workers)
+    except Exception as exc:  # noqa: BLE001
+        logger.error(exc)  # noqa: TRY400
+        return generate_error_response(str(exc), HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    return generate_result_response(result.to_dict())
