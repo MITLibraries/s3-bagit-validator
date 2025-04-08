@@ -47,7 +47,7 @@ def ping(ctx: click.Context) -> None:
                 "challenge_secret": CONFIG.CHALLENGE_SECRET,
                 "verbose": ctx.obj["VERBOSE"],
             },
-            timeout=15,
+            timeout=30,
         )
 
         if (
