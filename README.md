@@ -44,7 +44,7 @@ This application includes a CLI that is designed to invoke the deployed AWS Lamb
 
 To run CLI commands ensure the following environment variables are set:
 ```shell
-WORKSPACE=prod 
+WORKSPACE=### Environment "dev", "stage", or "prod"
 AIP_VALIDATOR_ENDPOINT=### Deployed AWS Lambda endpoint URL.
 CHALLENGE_SECRET=### Secret string that is passed as part of lambda invocation payload and checked before running.
 ```
