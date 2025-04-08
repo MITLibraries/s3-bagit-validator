@@ -41,6 +41,13 @@ class Config:
             raise OSError(message)
 
     @property
+    def sentry_dsn(self) -> str | None:
+        dsn = os.getenv("SENTRY_DSN")
+        if dsn and dsn.strip().lower() != "none":
+            return dsn
+        return None
+
+    @property
     def aws_region(self) -> str:
         return self.AWS_DEFAULT_REGION or "us-east-1"
 
@@ -131,9 +138,9 @@ def configure_dev_logger(
 def configure_sentry() -> None:
     CONFIG = Config()  # noqa: N806
     env = CONFIG.WORKSPACE
-    if sentry_dsn := CONFIG.SENTRY_DSN:
+    if CONFIG.sentry_dsn:
         sentry_sdk.init(
-            dsn=sentry_dsn,
+            dsn=CONFIG.sentry_dsn,
             environment=env,
             integrations=[
                 AwsLambdaIntegration(),
