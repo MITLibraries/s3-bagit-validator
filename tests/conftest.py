@@ -11,6 +11,7 @@ def _test_env(monkeypatch, request):
     monkeypatch.setenv("WORKSPACE", "test")
     monkeypatch.setenv("SENTRY_DSN", "None")
     monkeypatch.setenv("CHALLENGE_SECRET", "i-am-secret")
+    monkeypatch.delenv("AIP_VALIDATOR_ENDPOINT", raising=False)
 
     # do not set for integration tests
     if not request.node.get_closest_marker("integration"):
