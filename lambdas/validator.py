@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 
 from lambdas.aip import AIP
-from lambdas.config import Config, configure_logger
+from lambdas.config import Config, configure_logger, configure_sentry
 from lambdas.utils.aws import S3InventoryClient
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ def lambda_handler(event: dict, _context: dict) -> dict:
     challenge secret verified, the requested 'action' is performed.
     """
     CONFIG.check_required_env_vars()
+    configure_sentry()
 
     # parse payload
     try:
