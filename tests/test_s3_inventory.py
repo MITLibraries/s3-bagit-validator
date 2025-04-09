@@ -63,6 +63,16 @@ class TestS3InventoryClientParquetFiles:
                 assert "s3://bucket/inventory/dt=2023-04-15-00-00/data1.parquet" in result
                 assert "s3://bucket/inventory/dt=2023-04-15-00-00/data2.parquet" in result
 
+    def test_get_single_inventory_parquet_files_inventory_missing_or_empty(
+        self, caplog, mock_s3_client
+    ):
+        client = S3InventoryClient()
+        with patch.object(client.s3_client, "list_objects_recursive") as mock_list:
+            mock_list.return_value = []
+            result = client.get_single_inventory_parquet_files("s3://bucket/inventory")
+            assert result == []
+            assert "No symlink.txt files found for inventory location" in caplog.text
+
     def test_get_all_inventory_parquet_files(self):
         client = S3InventoryClient(
             inventory_uris=["s3://bucket1/inventory", "s3://bucket2/inventory"]
