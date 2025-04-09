@@ -54,11 +54,23 @@ class S3InventoryClient:
         read the symlink.txt for an explicit list of parquet file S3 URIs that fulfill
         that Inventory data.
 
+        If the configured S3 inventory location does not exist, or does not have data,
+        issue a warning but continue by returning an empty list.  It is possible for a
+        configured location to be empty.
+
         Args:
             inventory_uri: S3 URI of the root of the S3 Inventory data
         """
         objects = list(self.s3_client.list_objects_recursive(inventory_uri))
         objects = [obj for obj in objects if obj.endswith("symlink.txt")]
+
+        if not objects:
+            logger.warning(
+                f"No symlink.txt files found for inventory location: '{inventory_uri}'. "
+                "Is this the prefix of an S3 Inventory location?"
+            )
+            return []
+
         objects.sort(
             key=self.extract_dt_date_from_s3_key,
             reverse=True,
