@@ -55,6 +55,50 @@ class TestAIP:
         assert aip.s3_bucket == "bucket"
         assert aip.s3_key == "aip"
 
+    def test_init_from_uuid_success(self):
+        """Test successful initialization from a valid UUID."""
+        with patch(
+            "lambdas.utils.aws.S3InventoryClient.get_aip_from_uuid"
+        ) as mock_get_aip:
+            mock_aip_series = pd.Series(
+                {
+                    "aip_s3_uri": "s3://bucket/path/to/aip",
+                    "aip_s3_key": "path/to/aip",
+                    "bucket": "bucket",
+                }
+            )
+            mock_get_aip.return_value = mock_aip_series
+            aip = AIP.from_uuid("valid-uuid-12345")
+
+            mock_get_aip.assert_called_once_with("valid-uuid-12345")
+            assert aip.s3_uri == "s3://bucket/path/to/aip"
+            assert aip.s3_bucket == "bucket"
+            assert aip.s3_key == "path/to/aip"
+
+    def test_init_from_uuid_none_found(self):
+        """Test that ValueError is bubbled up when UUID is not found."""
+        with patch(
+            "lambdas.utils.aws.S3InventoryClient.get_aip_from_uuid"
+        ) as mock_get_aip:
+            mock_get_aip.side_effect = ValueError("AIP UUID 'missing-uuid' not found")
+
+            with pytest.raises(ValueError, match="AIP UUID 'missing-uuid' not found"):
+                AIP.from_uuid("missing-uuid")
+
+    def test_init_from_uuid_multiple_found(self):
+        """Test that TypeError is bubbled up when multiple AIPs with same UUID exist."""
+        with patch(
+            "lambdas.utils.aws.S3InventoryClient.get_aip_from_uuid"
+        ) as mock_get_aip:
+            mock_get_aip.side_effect = TypeError(
+                "Multiple entries found for AIP UUID 'duplicate-uuid'"
+            )
+
+            with pytest.raises(
+                TypeError, match="Multiple entries found for AIP UUID 'duplicate-uuid'"
+            ):
+                AIP.from_uuid("duplicate-uuid")
+
     def test_data_files_property(self):
         aip = AIP("s3://bucket/aip")
         aip.files = [

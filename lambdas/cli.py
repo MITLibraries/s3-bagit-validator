@@ -268,9 +268,8 @@ def validate_aip_via_lambda(
             "aip_s3_uri": aip_s3_uri,
             "verbose": verbose,
         },
-        timeout=900,  # long 15 min timeout for large AIPs
+        timeout=900,  # 15 min timeout (AWS Lambda maximum) for large AIPs
     )
-    response.raise_for_status()
     result = response.json()
 
     status = "OK" if result.get("valid", False) else f"FAILED: {result.get('error')}"
