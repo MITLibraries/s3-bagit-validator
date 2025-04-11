@@ -51,16 +51,21 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         return generate_error_response(str(exc), HTTPStatus.UNAUTHORIZED)
 
     # perform requested action
-    if payload.action == "ping":
-        return ping()
-
-    if payload.action == "validate":
-        return validate(payload)
-
-    return generate_error_response(
-        f"action not recognized: '{payload.action}'",
-        HTTPStatus.BAD_REQUEST,
-    )
+    try:
+        if payload.action == "ping":
+            return ping()
+        if payload.action == "validate":
+            return validate(payload)
+        return generate_error_response(
+            f"action not recognized: '{payload.action}'",
+            HTTPStatus.BAD_REQUEST,
+        )
+    except Exception as exc:
+        logger.exception("Unhandled exception")
+        return generate_error_response(
+            str(exc),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
 
 
 def parse_payload(event: dict) -> InputPayload:
@@ -139,17 +144,12 @@ def ping() -> dict:
 
 def validate(payload: InputPayload) -> dict:
     """Validate a single AIP."""
-    if payload.aip_uuid and not payload.aip_s3_uri:
+    if payload.aip_uuid:
         aip = AIP.from_uuid(payload.aip_uuid)
     elif payload.aip_s3_uri:
         aip = AIP.from_s3_uri(payload.aip_s3_uri)
     else:
         raise RuntimeError("Either AIP S3 URI or UUID is required.")
 
-    try:
-        result = aip.validate(num_workers=payload.num_workers)
-    except Exception as exc:  # noqa: BLE001
-        logger.error(exc)  # noqa: TRY400
-        return generate_error_response(str(exc), HTTPStatus.INTERNAL_SERVER_ERROR)
-
+    result = aip.validate(num_workers=payload.num_workers)
     return generate_result_response(result.to_dict())
