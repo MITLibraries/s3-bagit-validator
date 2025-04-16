@@ -152,4 +152,6 @@ def validate(payload: InputPayload) -> dict:
         raise RuntimeError("Either AIP S3 URI or UUID is required.")
 
     result = aip.validate(num_workers=payload.num_workers)
-    return generate_result_response(result.to_dict())
+    logger.info(f"AIP '{result.s3_uri}' is valid: {result.valid}")
+
+    return generate_result_response(result.to_dict(exclude=["manifest"]))

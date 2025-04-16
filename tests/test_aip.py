@@ -40,11 +40,10 @@ class TestValidationResponse:
 
     def test_to_json(self):
         response = ValidationResponse(s3_uri="s3://bucket/aip", valid=True, elapsed=1.5)
-        json_result = response.to_json()
+        json_result = response.to_json(exclude=["manifest", "error", "error_details"])
         assert isinstance(json_result, str)
         assert (
-            json_result
-            == '{"s3_uri": "s3://bucket/aip", "valid": true, "elapsed": 1.5, "manifest": null, "error": null}'
+            json_result == '{"s3_uri": "s3://bucket/aip", "valid": true, "elapsed": 1.5}'
         )
 
 

@@ -150,7 +150,6 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["valid"] is True
         assert body["s3_uri"] == "s3://bucket/aip"
-        assert body["manifest"] == {"data/file1.txt": "abc123"}
 
     def test_lambda_handler_success_with_uuid(self):
         event = {

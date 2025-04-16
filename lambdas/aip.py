@@ -30,6 +30,7 @@ class ValidationResponse:
         elapsed: time in seconds to perform validation
         manifest: dictionary of manifest file to its checksum
         error: string of error(s) if encountered during validation
+        error_details: dictionary of details related to validation error(s)
     """
 
     s3_uri: str
@@ -37,12 +38,26 @@ class ValidationResponse:
     elapsed: float
     manifest: dict[str, str] | None = None
     error: str | None = None
+    error_details: dict | None = None
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def to_dict(
+        self,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+    ) -> dict:
+        output = asdict(self)
+        if include:
+            output = {k: v for k, v in output.items() if k in include}
+        if exclude:
+            output = {k: v for k, v in output.items() if k not in exclude}
+        return output
 
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict())
+    def to_json(
+        self,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+    ) -> str:
+        return json.dumps(self.to_dict(include=include, exclude=exclude))
 
 
 class AIP:
