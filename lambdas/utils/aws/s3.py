@@ -85,7 +85,11 @@ class S3Client:
 
     @classmethod
     def generate_checksum_for_object(cls, s3_uri: str) -> str:
-        """Generate a SHA256 checksum for an S3 object by copying it over itself."""
+        """Generate a SHA256 checksum for an S3 object by copying it over itself.
+
+        In addition to returning  the SHA256 checksum, this also saves the checksum to the
+        object metadata such that it can be quickly retrieved in the future.
+        """
         logger.debug(f"Generating checksum for: {s3_uri}")
         bucket, key = cls.parse_s3_uri(s3_uri)
         s3_client = cls.get_client()
@@ -100,7 +104,7 @@ class S3Client:
 
     @classmethod
     def get_checksum_for_object(cls, s3_uri: str) -> str:
-        """Get the SHA256 checksum for an S3 object."""
+        """Get the SHA256 checksum for an S3 object from its Metadata."""
         bucket, key = cls.parse_s3_uri(s3_uri)
         s3_client = cls.get_client()
 
