@@ -99,7 +99,9 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
     # make request to AIP validator lambda
     try:
         result = validate_aip_via_lambda(
-            aip_uuid=aip_uuid, aip_s3_uri=s3_uri, verbose=ctx.obj["VERBOSE"]
+            aip_uuid=aip_uuid,
+            aip_s3_uri=s3_uri,
+            verbose=ctx.obj["VERBOSE"],
         )
     except requests.exceptions.RequestException as exc:
         error_msg = f"Error connecting to AIP validation lambda: {exc}"
@@ -270,7 +272,18 @@ def validate_aip_via_lambda(
         },
         timeout=900,  # 15 min timeout (AWS Lambda maximum) for large AIPs
     )
-    result = response.json()
+
+    if response.status_code != HTTPStatus.OK:
+        raise RuntimeError(f"Non 200 response from Lambda: {response.content.decode()}")
+
+    try:
+        result = response.json()
+    except Exception:
+        logger.error(
+            "Error parsing JSON from Lambda response. "
+            f"Raw response: {response.content.decode()[:480]}"  # limit output
+        )
+        raise
 
     status = "OK" if result.get("valid", False) else f"FAILED: {result.get('error')}"
     logger.debug(f"AIP {aip_uuid or aip_s3_uri}, validation result: {status}")

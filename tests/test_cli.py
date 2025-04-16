@@ -165,6 +165,7 @@ class TestValidateAipViaLambda:
     def test_validate_aip_via_lambda_with_uuid(self):
         with patch("requests.post") as mock_post:
             mock_response = MagicMock()
+            mock_response.status_code = 200
             mock_response.json.return_value = {"valid": True, "elapsed": 1.5}
             mock_post.return_value = mock_response
 
@@ -178,6 +179,7 @@ class TestValidateAipViaLambda:
     def test_validate_aip_via_lambda_with_s3_uri(self):
         with patch("requests.post") as mock_post:
             mock_response = MagicMock()
+            mock_response.status_code = 200
             mock_response.json.return_value = {"valid": True, "elapsed": 1.5}
             mock_post.return_value = mock_response
 
