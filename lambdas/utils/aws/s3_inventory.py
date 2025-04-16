@@ -290,7 +290,9 @@ class S3InventoryClient:
             last_modified_date,
             filename,
             key,
-            checksum_algorithm
+            checksum_algorithm,
+            size,
+            is_multipart_uploaded
         from inventory
 
         -- ensures data is only for most recent form of record and not deleted
