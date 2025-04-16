@@ -87,10 +87,21 @@ def mock_aip_files():
 
 @pytest.fixture
 def mock_inventory_data():
+    one_mb_size = 1 * 1024 * 1024
     df = pd.DataFrame(
         [
-            {"key": "aip/data/file1.txt", "checksum_algorithm": "SHA256"},
-            {"key": "aip/data/file2.txt", "checksum_algorithm": "SHA256"},
+            {
+                "key": "aip/data/file1.txt",
+                "checksum_algorithm": "SHA256",
+                "size": one_mb_size,
+                "is_multipart_uploaded": False,
+            },
+            {
+                "key": "aip/data/file2.txt",
+                "checksum_algorithm": "SHA256",
+                "size": one_mb_size,
+                "is_multipart_uploaded": False,
+            },
         ]
     )
     with patch("lambdas.utils.aws.S3InventoryClient.get_aip_inventory") as mock_query:

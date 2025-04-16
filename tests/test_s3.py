@@ -1,4 +1,9 @@
-# ruff: noqa: ARG002
+# ruff: noqa: ARG002, D205
+
+import base64
+import hashlib
+import random
+import time
 
 import pytest
 from botocore.exceptions import ClientError
@@ -109,3 +114,57 @@ class TestChecksumMethods:
         mock_s3_client.head_object.return_value = {}  # No checksum in response
         with pytest.raises(ValueError, match="Object does not have a SHA256 checksum"):
             S3Client.get_checksum_for_object("s3://bucket/file.txt")
+
+    def test_calculate_checksum_for_large_object_download_and_hashing_algorithm_success(
+        self, tmp_path, mock_s3_client, mocker
+    ):
+        """This test ensure that the PARALLEL downloading of byte chunks from a file is
+        then hashed in an ORDERED fashion to get an accurate SHA256 checksum.
+
+        This is achieved by creating a temporary 10mb file, then mocking the retrieval of
+        data chunks to come from this file instead of S3.  The parallel reads and hashing
+        are all real, just the origin of the file is mocked.
+
+        The mocked method mock_download_byte_range() introduces some timing randomness
+        via a 0-1 second sleep.
+        """
+        file_size = 10 * 1024 * 1024  # 10mb
+        chunk_size = 1 * 1024 * 1024  # 1mb; small, to ensure parallel chunk downloads
+        window_size = 5  # small, to ensure parallel chunk downloads
+
+        # create a temporary 10mb file where each 1mb chunk is unique
+        filepath = tmp_path / "file.txt"
+        file_data = b""
+        for x in range(10):
+            file_data += (str(x) * chunk_size).encode()
+        with open(filepath, "wb") as f:
+            f.write(file_data)
+
+        # mock S3 head request file size of 10mb
+        mock_s3_client.head_object.return_value = {"ContentLength": file_size}
+
+        def mock_download_byte_range(*args):
+            """Mocks downloading byte chunks from S3, coming from local file instead."""
+            time.sleep(random.random())  # noqa: S311
+            _, _, _, chunk_index, chunk_size = args
+            with open(filepath, "rb") as f:
+                f.seek(chunk_index * chunk_size)
+                return f.read(chunk_size)
+
+        mocker.patch.object(
+            S3Client,
+            "download_object_byte_range",
+            side_effect=mock_download_byte_range,
+        )
+
+        # calculate checksum from the full, ordered data
+        expected_hash = hashlib.sha256(file_data).digest()
+        expected_checksum = base64.b64encode(expected_hash).decode("ascii")
+
+        # get checksum from method and assert the same
+        result = S3Client.calculate_checksum_for_large_object(
+            "s3://bucket/large_file.txt",
+            window_size=window_size,
+            chunk_size=chunk_size,
+        )
+        assert result == expected_checksum

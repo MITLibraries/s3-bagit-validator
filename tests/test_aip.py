@@ -232,11 +232,27 @@ class TestAIP:
             ]
         )
 
+        one_mb_size = 1 * 1024 * 1024
         aip.s3_inventory = pd.DataFrame(
             [
-                {"key": "aip/data/file1.txt", "checksum_algorithm": "SHA256"},
-                {"key": "aip/data/file2.txt", "checksum_algorithm": "SHA256"},
-                {"key": "aip/data/file3.txt", "checksum_algorithm": "MD5"},
+                {
+                    "key": "aip/data/file1.txt",
+                    "checksum_algorithm": "SHA256",
+                    "size": one_mb_size,
+                    "is_multipart_uploaded": False,
+                },
+                {
+                    "key": "aip/data/file2.txt",
+                    "checksum_algorithm": "SHA256",
+                    "size": one_mb_size,
+                    "is_multipart_uploaded": False,
+                },
+                {
+                    "key": "aip/data/file3.txt",
+                    "checksum_algorithm": "MD5",
+                    "size": one_mb_size,
+                    "is_multipart_uploaded": False,
+                },
             ]
         ).set_index("key")
 
