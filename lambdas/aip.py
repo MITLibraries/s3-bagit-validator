@@ -248,9 +248,16 @@ class AIP:
                 f"{self.s3_key}/{filepath}"
             ]
 
-            # retrieve or generate SHA256
-            if inventory_row["checksum_algorithm"] != "SHA256":
+            # derive a SHA256 checksum for file
+            ## case: S3 objects >= 5gb
+            if inventory_row["size"] > 5 * 1024 * 1024 * 1024:  # 5 GB
+                base64_checksum = self.s3_client.calculate_checksum_for_large_object(
+                    s3_uri
+                )
+            ## case: S3 object does not have a SHA256 checksum available
+            elif inventory_row["checksum_algorithm"] != "SHA256":
                 base64_checksum = self.s3_client.generate_checksum_for_object(s3_uri)
+            ## case: S3 object has a SHA256 checksum available
             else:
                 base64_checksum = self.s3_client.get_checksum_for_object(s3_uri)
 
