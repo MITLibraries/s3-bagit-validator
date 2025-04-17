@@ -282,7 +282,7 @@ def validate_aip_via_lambda(
     )
 
     if response.status_code != HTTPStatus.OK:
-        raise RuntimeError(f"Non 200 response from Lambda: {response.content.decode()}")
+        logger.warning(f"Non 200 response from Lambda: {response.content.decode()}")
 
     try:
         result = response.json()
