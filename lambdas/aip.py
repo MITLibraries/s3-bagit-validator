@@ -222,8 +222,7 @@ class AIP:
         if missing_in_aip:
             missing_files = list(missing_in_aip)
             raise AIPValidationError(
-                "Files found in manifest but missing from AIP: "
-                + json.dumps(missing_files),
+                "Files found in manifest but missing from AIP",
                 error_details={
                     "type": "files_missing_in_aip",
                     "missing_files": missing_files,
@@ -232,8 +231,7 @@ class AIP:
         if missing_in_manifest:
             missing_files = list(missing_in_manifest)
             raise AIPValidationError(
-                "Files found in AIP but missing from manifest: "
-                + json.dumps(missing_files),
+                "Files found in AIP but missing from manifest",
                 error_details={
                     "type": "files_missing_in_manifest",
                     "missing_files": missing_files,
