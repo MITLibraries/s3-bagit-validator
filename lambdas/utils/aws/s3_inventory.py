@@ -247,10 +247,12 @@ class S3InventoryClient:
         aips_df = self.get_aips_df()
 
         if aip_uuid not in aips_df["aip_uuid"].to_numpy():
-            raise ValueError(f"AIP UUID '{aip_uuid}' not found")
+            raise ValueError(f"AIP UUID '{aip_uuid}' not found in S3 Inventory data")
         aip = aips_df.set_index("aip_uuid").loc[aip_uuid]
         if isinstance(aip, pd.DataFrame):
-            raise TypeError(f"Multiple entries found for AIP UUID '{aip_uuid}'")
+            raise TypeError(
+                f"Multiple entries found for AIP UUID '{aip_uuid}'in S3 Inventory data "
+            )
 
         return aip
 

@@ -163,7 +163,7 @@ class AIP:
     def _check_aip_s3_folder_exists(self) -> None:
         if not self.s3_client.folder_exists(self.s3_uri):
             raise AIPValidationError(
-                f"Bagit AIP folder not found in S3: {self.s3_uri}",
+                "Bagit AIP folder not found in S3",
                 error_details={"type": "aip_folder_not_found", "s3_uri": self.s3_uri},
             )
 

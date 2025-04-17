@@ -1,3 +1,5 @@
+# ruff: noqa: PLR0911
+
 import json
 import logging
 from dataclasses import dataclass
@@ -5,6 +7,7 @@ from http import HTTPStatus
 
 from lambdas.aip import AIP
 from lambdas.config import Config, configure_logger, configure_sentry
+from lambdas.exceptions import AIPValidationError
 from lambdas.utils.aws import S3InventoryClient
 
 logger = logging.getLogger(__name__)
@@ -59,6 +62,12 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         return generate_error_response(
             f"action not recognized: '{payload.action}'",
             http_status_code=HTTPStatus.BAD_REQUEST,
+        )
+    except AIPValidationError as exc:
+        return generate_error_response(
+            error=str(exc),
+            error_details=exc.error_details,
+            http_status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
     except Exception as exc:
         logger.exception("Unhandled exception")
@@ -155,7 +164,10 @@ def validate(payload: InputPayload) -> dict:
     elif payload.aip_s3_uri:
         aip = AIP.from_s3_uri(payload.aip_s3_uri)
     else:
-        raise RuntimeError("Either AIP S3 URI or UUID is required.")
+        return generate_error_response(
+            error="Either AIP S3 URI or UUID is required.",
+            http_status_code=HTTPStatus.BAD_REQUEST,
+        )
 
     result = aip.validate(num_workers=payload.num_workers)
     logger.info(f"AIP '{result.s3_uri}' is valid: {result.valid}")

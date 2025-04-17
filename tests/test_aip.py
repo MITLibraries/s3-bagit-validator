@@ -146,7 +146,7 @@ class TestAIP:
             response = aip.validate()
 
             assert response.valid is False
-            assert response.error == "Bagit AIP folder not found in S3: s3://bucket/aip"
+            assert response.error == "Bagit AIP folder not found in S3"
             assert response.error_details == {
                 "type": "aip_folder_not_found",
                 "s3_uri": "s3://bucket/aip",
