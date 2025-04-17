@@ -105,6 +105,7 @@ class S3Client:
     @classmethod
     def get_checksum_for_object(cls, s3_uri: str) -> str:
         """Get the SHA256 checksum for an S3 object from its Metadata."""
+        logger.debug(f"Getting checksum for: {s3_uri}")
         bucket, key = cls.parse_s3_uri(s3_uri)
         s3_client = cls.get_client()
 
@@ -177,6 +178,7 @@ class S3Client:
             - window_size: [int] Number of chunks to download and hash in parallel
             - chunk_size: [int] Size in bytes for each chunk of the file downloaded
         """
+        logger.debug(f"Calculating checksum for: {s3_uri}")
         start_time = time.perf_counter()
         bucket, key = cls.parse_s3_uri(s3_uri)
 

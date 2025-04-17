@@ -38,7 +38,7 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         payload = parse_payload(event)
     except ValueError as exc:
         logger.error(exc)  # noqa: TRY400
-        return generate_error_response(str(exc), HTTPStatus.BAD_REQUEST)
+        return generate_error_response(str(exc), http_status_code=HTTPStatus.BAD_REQUEST)
 
     configure_logger(logging.getLogger(), verbose=payload.verbose)
     logger.debug(json.dumps(event))
@@ -48,7 +48,7 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         validate_secret(payload.challenge_secret)
     except RuntimeError as exc:
         logger.error(exc)  # noqa: TRY400
-        return generate_error_response(str(exc), HTTPStatus.UNAUTHORIZED)
+        return generate_error_response(str(exc), http_status_code=HTTPStatus.UNAUTHORIZED)
 
     # perform requested action
     try:
@@ -58,13 +58,13 @@ def lambda_handler(event: dict, _context: dict) -> dict:
             return validate(payload)
         return generate_error_response(
             f"action not recognized: '{payload.action}'",
-            HTTPStatus.BAD_REQUEST,
+            http_status_code=HTTPStatus.BAD_REQUEST,
         )
     except Exception as exc:
         logger.exception("Unhandled exception")
         return generate_error_response(
             str(exc),
-            HTTPStatus.INTERNAL_SERVER_ERROR,
+            http_status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
 
 
@@ -96,6 +96,7 @@ def validate_secret(challenge_secret: str | None) -> None:
 
 def generate_error_response(
     error: str,
+    error_details: dict | None = None,
     http_status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR,
 ) -> dict:
     """Produce a response object suitable for HTTP responses.
@@ -107,7 +108,12 @@ def generate_error_response(
         "statusCode": http_status_code,
         "headers": {"Content-Type": "application/json"},
         "isBase64Encoded": False,
-        "body": json.dumps({"error": error}),
+        "body": json.dumps(
+            {
+                "error": error,
+                "error_details": error_details,
+            }
+        ),
     }
 
 

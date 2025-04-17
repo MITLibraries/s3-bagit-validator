@@ -159,11 +159,15 @@ class AIP:
                 elapsed=round(perf_counter() - start_time, 2),
                 manifest=self.manifest_as_dict,
                 error=str(exception),
+                error_details=exception.error_details,
             )
 
     def _check_aip_s3_folder_exists(self) -> None:
         if not self.s3_client.folder_exists(self.s3_uri):
-            raise AIPValidationError(f"Bagit AIP folder not found in S3: {self.s3_uri}")
+            raise AIPValidationError(
+                f"Bagit AIP folder not found in S3: {self.s3_uri}",
+                error_details={"type": "aip_folder_not_found", "s3_uri": self.s3_uri},
+            )
 
     def _parse_aip_manifest(self) -> pd.DataFrame:
         """Read manifest-sha256.txt from AIP."""
@@ -174,7 +178,12 @@ class AIP:
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "NoSuchKey":
                 raise AIPValidationError(
-                    "Could not find 'manifest-sha256.txt' for AIP."
+                    "Could not find 'manifest-sha256.txt' for AIP.",
+                    error_details={
+                        "type": "manifest_not_found",
+                        "s3_uri": f"{self.s3_uri}/manifest-sha256.txt",
+                        "error_code": exc.response["Error"]["Code"],
+                    },
                 ) from exc
         lines = manifest_data.strip().split("\n")
         data = []
@@ -211,14 +220,24 @@ class AIP:
         }
 
         if missing_in_aip:
+            missing_files = list(missing_in_aip)
             raise AIPValidationError(
                 "Files found in manifest but missing from AIP: "
-                + json.dumps(list(missing_in_aip))
+                + json.dumps(missing_files),
+                error_details={
+                    "type": "files_missing_in_aip",
+                    "missing_files": missing_files,
+                },
             )
         if missing_in_manifest:
+            missing_files = list(missing_in_manifest)
             raise AIPValidationError(
                 "Files found in AIP but missing from manifest: "
-                + json.dumps(list(missing_in_manifest))
+                + json.dumps(missing_files),
+                error_details={
+                    "type": "files_missing_in_manifest",
+                    "missing_files": missing_files,
+                },
             )
 
     def _get_aip_s3_inventory(self) -> pd.DataFrame:
@@ -228,7 +247,8 @@ class AIP:
 
         if len(inventory_df) == 0:
             raise AIPValidationError(
-                f"S3 Inventory data not found for S3 key: '{self.s3_key}'"
+                f"S3 Inventory data not found for S3 key: '{self.s3_key}'",
+                error_details={"type": "s3_inventory_not_found", "s3_key": self.s3_key},
             )
 
         # index by S3 key
@@ -341,5 +361,17 @@ class AIP:
                 mismatches.append(row.filepath)
         if mismatches:
             raise AIPValidationError(
-                f"""Mismatched checksums for files: {json.dumps(mismatches)}"""
+                """Mismatched checksums for files""",
+                error_details={
+                    "type": "checksum_mismatch",
+                    "mismatched_files": mismatches,
+                    "manifest_checksums": {
+                        row.filepath: row.checksum
+                        for _, row in self.manifest_df.iterrows()
+                        if row.filepath in mismatches
+                    },
+                    "s3_checksums": {
+                        filepath: self.file_checksums[filepath] for filepath in mismatches
+                    },
+                },
             )

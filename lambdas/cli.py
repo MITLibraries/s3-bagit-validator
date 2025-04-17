@@ -125,7 +125,15 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
             click.echo("OK")
         ctx.exit(0)
     else:
-        click.echo(f"AIP validation error: {result.get('error', 'Unknown')}", err=True)
+        click.echo(
+            json.dumps(
+                {
+                    "error": result.get("error", "Unspecified"),
+                    "error_details": result.get("error_details", None),
+                }
+            ),
+            err=True,
+        )
         ctx.exit(1)
 
 
