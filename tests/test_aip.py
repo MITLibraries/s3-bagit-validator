@@ -223,6 +223,36 @@ class TestAIP:
         assert "Mismatched checksums for files" in str(exc.value)
         assert "data/file2.txt" in exc.value.error_details["mismatched_files"]
 
+    def test_check_checksums_mismatch_truncation(self):
+        aip = AIP("s3://bucket/aip")
+
+        # create mismatched files exceeding the file limit
+        file_count = 150
+        manifest_data = []
+        file_checksums = {}
+        for i in range(file_count):
+            filepath = f"data/file{i}.txt"
+            manifest_data.append({"filepath": filepath, "checksum": f"expected{i}"})
+            file_checksums[filepath] = f"actual{i}"
+
+        # mock manifest data and checksums to provoke checksum mismatches
+        aip.manifest_df = pd.DataFrame(manifest_data)
+        aip.file_checksums = file_checksums
+        with pytest.raises(AIPValidationError) as exc:
+            aip._check_checksums()
+
+        # check that error details are truncated
+        assert "warning" in exc.value.error_details["manifest_checksums"]
+        assert (
+            exc.value.error_details["manifest_checksums"]["warning"]
+            == "too many individual files to list"
+        )
+        assert "warning" in exc.value.error_details["s3_checksums"]
+        assert (
+            exc.value.error_details["s3_checksums"]["warning"]
+            == "too many individual files to list"
+        )
+
     def test_get_aip_file_checksums(self):
         """Test that _get_aip_file_checksums correctly processes files in parallel."""
         aip = AIP("s3://bucket/aip")

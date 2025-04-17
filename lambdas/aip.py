@@ -360,18 +360,31 @@ class AIP:
             if row.checksum != self.file_checksums[row.filepath]:
                 mismatches.append(row.filepath)
         if mismatches:
+
+            error_details = {
+                "type": "checksum_mismatch",
+                "mismatched_files": mismatches,
+                "manifest_checksums": {
+                    row.filepath: row.checksum
+                    for _, row in self.manifest_df.iterrows()
+                    if row.filepath in mismatches
+                },
+                "s3_checksums": {
+                    filepath: self.file_checksums[filepath] for filepath in mismatches
+                },
+            }
+
+            file_limit = 100
+            if len(error_details["manifest_checksums"]) > file_limit:
+                error_details["manifest_checksums"] = {
+                    "warning": "too many individual files to list"
+                }
+            if len(error_details["s3_checksums"]) > file_limit:
+                error_details["s3_checksums"] = {
+                    "warning": "too many individual files to list"
+                }
+
             raise AIPValidationError(
                 """Mismatched checksums for files""",
-                error_details={
-                    "type": "checksum_mismatch",
-                    "mismatched_files": mismatches,
-                    "manifest_checksums": {
-                        row.filepath: row.checksum
-                        for _, row in self.manifest_df.iterrows()
-                        if row.filepath in mismatches
-                    },
-                    "s3_checksums": {
-                        filepath: self.file_checksums[filepath] for filepath in mismatches
-                    },
-                },
+                error_details=error_details,
             )
