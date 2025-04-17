@@ -112,7 +112,7 @@ def mock_inventory_data():
 @pytest.fixture
 def mock_checksums():
     with patch("lambdas.utils.aws.s3.S3Client.get_checksum_for_object") as mock_get:
-        with patch("lambdas.aip.AIP._decode_base64_sha256") as mock_decode:
+        with patch("lambdas.utils.aws.s3.S3Client._decode_base64_sha256") as mock_decode:
             mock_get.return_value = "base64_encoded_checksum"
             # Set return values to match expected manifest checksums
             mock_decode.side_effect = ["abcdef1234567890", "fedcba0987654321"]

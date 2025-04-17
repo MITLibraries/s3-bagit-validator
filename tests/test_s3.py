@@ -1,4 +1,4 @@
-# ruff: noqa: ARG002, D205
+# ruff: noqa: ARG002, D205, SLF001
 
 import base64
 import hashlib
@@ -82,6 +82,13 @@ class TestReadS3Object:
 
 
 class TestChecksumMethods:
+    def test_decode_base64_sha256(self):
+        base64_encoded = "bKE9UspcyIPg8LsQHkJaiebiTeUdstI5JZOvaoQRgJA="
+        result = S3Client._decode_base64_sha256(base64_encoded)
+        assert (
+            result == "6ca13d52ca5cc883e0f0bb101e425a89e6e24de51db2d2392593af6a84118090"
+        )
+
     def test_generate_checksum_for_object(self, mock_s3_client):
         mock_s3_client.copy_object.return_value = {
             "CopyObjectResult": {"ChecksumSHA256": "abc123checksum"}
@@ -153,7 +160,7 @@ class TestChecksumMethods:
 
         mocker.patch.object(
             S3Client,
-            "download_object_byte_range",
+            "read_s3_object_byte_range",
             side_effect=mock_download_byte_range,
         )
 
@@ -162,7 +169,7 @@ class TestChecksumMethods:
         expected_checksum = base64.b64encode(expected_hash).decode("ascii")
 
         # get checksum from method and assert the same
-        result = S3Client.calculate_checksum_for_large_object(
+        result = S3Client.calculate_checksum_for_object(
             "s3://bucket/large_file.txt",
             window_size=window_size,
             chunk_size=chunk_size,

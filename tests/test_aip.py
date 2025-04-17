@@ -121,13 +121,6 @@ class TestAIP:
             "data/file2.txt": "def456",
         }
 
-    def test_decode_base64_sha256(self):
-        base64_encoded = "bKE9UspcyIPg8LsQHkJaiebiTeUdstI5JZOvaoQRgJA="
-        result = AIP._decode_base64_sha256(base64_encoded)
-        assert (
-            result == "6ca13d52ca5cc883e0f0bb101e425a89e6e24de51db2d2392593af6a84118090"
-        )
-
     def test_validate_success(
         self,
         mock_aip_folder,
@@ -294,7 +287,9 @@ class TestAIP:
             with patch(
                 "lambdas.utils.aws.s3.S3Client.generate_checksum_for_object"
             ) as mock_generate:
-                with patch("lambdas.aip.AIP._decode_base64_sha256") as mock_decode:
+                with patch(
+                    "lambdas.utils.aws.s3.S3Client._decode_base64_sha256"
+                ) as mock_decode:
                     mock_get.side_effect = lambda _: "base64_checksum"
                     mock_generate.side_effect = lambda _: "base64_checksum"
                     mock_decode.return_value = "expected_checksum_xxxyyy111222"

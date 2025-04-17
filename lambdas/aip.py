@@ -1,5 +1,3 @@
-import base64
-import binascii
 import concurrent.futures
 import json
 import logging
@@ -252,11 +250,6 @@ class AIP:
         # index by S3 key
         return inventory_df.set_index("key")
 
-    @staticmethod
-    def _decode_base64_sha256(base64_checksum: str | bytes) -> str:
-        binary_checksum = base64.b64decode(base64_checksum)
-        return binascii.hexlify(binary_checksum).decode("ascii")
-
     def _get_aip_file_checksums(
         self, num_workers: int = CONFIG.checksum_num_workers
     ) -> dict[str, str]:
@@ -264,26 +257,6 @@ class AIP:
 
         This process is performed in parallel via threads by the worker function
         'process_file_worker' which updates a local dictionary of file-to-checksum.
-
-        The mechanism by which we get a checksum for a file varies per the S3 object:
-
-            - case 1: S3 objects >= 5gb
-                - use S3Client.calculate_checksum_for_large_object()
-                - we must calculate a checksum manually from the object bytes
-                - files this large cannot be copied via boto3.s3.copy_object(), and thus
-                we cannot get a checksum per that approach
-                - moreover, files this large cannot have "full" SHA256 checksums in AWS,
-                only "composite" which is not the same as a Bagit checksum for the file
-
-            - case 2: S3 object does not have a SHA256 checksum available
-                - use S3Client.generate_checksum_for_object()
-                - if the file is < 5gb, we can use boto3.s3.copy_object() to copy the file
-                 over itself, returning a SHA256 checksum in the process and saving it to
-                 the object for future use
-
-            - case 3: S3 object has a SHA256 checksum available
-                - use S3Client.get_checksum_for_object()
-                - the object already has a SHA256 checksum, use it
         """
         if self.manifest_df is None:
             raise ValueError("Bagit manifest data not found")
@@ -300,21 +273,12 @@ class AIP:
                 f"{self.s3_key}/{filepath}"
             ]
 
-            # derive a SHA256 checksum for file
-            ## S3 objects >= 5gb
-            if inventory_row["size"] > 5 * 1024 * 1024 * 1024:  # 5 GB
-                base64_checksum = self.s3_client.calculate_checksum_for_large_object(
-                    s3_uri
-                )
-            ## S3 object does not have a SHA256 checksum via metadata
-            elif inventory_row["checksum_algorithm"] != "SHA256":
-                base64_checksum = self.s3_client.generate_checksum_for_object(s3_uri)
-            ## S3 object has a SHA256 checksum available via metadata
-            else:
-                base64_checksum = self.s3_client.get_checksum_for_object(s3_uri)
-
-            # convert base64 form to ascii
-            checksum = self._decode_base64_sha256(base64_checksum)
+            # get checksum for object
+            checksum = self.s3_client.get_object_checksum(
+                s3_uri,
+                size=int(inventory_row["size"]),
+                has_sha256_checksum=str(inventory_row["checksum_algorithm"]) == "SHA256",
+            )
             logger.debug(f"AIP file: '{filepath}', checksum: '{checksum}'")
 
             # save file:checksum dictionary
