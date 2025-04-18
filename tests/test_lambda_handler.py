@@ -105,17 +105,23 @@ class TestValidateSecret:
 class TestResponseGeneration:
     def test_generate_error_response(self):
         response = validator.generate_error_response(
-            "Test error message", HTTPStatus.BAD_REQUEST
+            "Test error message", http_status_code=HTTPStatus.BAD_REQUEST
         )
         assert response["statusCode"] == HTTPStatus.BAD_REQUEST
         assert response["headers"] == {"Content-Type": "application/json"}
         assert response["isBase64Encoded"] is False
-        assert json.loads(response["body"]) == {"error": "Test error message"}
+        assert json.loads(response["body"]) == {
+            "error": "Test error message",
+            "error_details": None,
+        }
 
     def test_generate_error_response_default_status(self):
         response = validator.generate_error_response("Test error message")
         assert response["statusCode"] == HTTPStatus.INTERNAL_SERVER_ERROR
-        assert json.loads(response["body"]) == {"error": "Test error message"}
+        assert json.loads(response["body"]) == {
+            "error": "Test error message",
+            "error_details": None,
+        }
 
     def test_generate_result_response(self):
         test_data = {"key": "value", "nested": {"data": 123}}
@@ -150,7 +156,6 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["valid"] is True
         assert body["s3_uri"] == "s3://bucket/aip"
-        assert body["manifest"] == {"data/file1.txt": "abc123"}
 
     def test_lambda_handler_success_with_uuid(self):
         event = {

@@ -30,6 +30,7 @@ class ValidationResponse:
         elapsed: time in seconds to perform validation
         manifest: dictionary of manifest file to its checksum
         error: string of error(s) if encountered during validation
+        error_details: dictionary of details related to validation error(s)
     """
 
     s3_uri: str
@@ -37,12 +38,26 @@ class ValidationResponse:
     elapsed: float
     manifest: dict[str, str] | None = None
     error: str | None = None
+    error_details: dict | None = None
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def to_dict(
+        self,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+    ) -> dict:
+        output = asdict(self)
+        if include:
+            output = {k: v for k, v in output.items() if k in include}
+        if exclude:
+            output = {k: v for k, v in output.items() if k not in exclude}
+        return output
 
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict())
+    def to_json(
+        self,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+    ) -> str:
+        return json.dumps(self.to_dict(include=include, exclude=exclude))
 
 
 class AIP:
@@ -144,11 +159,15 @@ class AIP:
                 elapsed=round(perf_counter() - start_time, 2),
                 manifest=self.manifest_as_dict,
                 error=str(exception),
+                error_details=exception.error_details,
             )
 
     def _check_aip_s3_folder_exists(self) -> None:
         if not self.s3_client.folder_exists(self.s3_uri):
-            raise AIPValidationError(f"Bagit AIP folder not found in S3: {self.s3_uri}")
+            raise AIPValidationError(
+                f"Bagit AIP folder not found in S3: {self.s3_uri}",
+                error_details={"type": "aip_folder_not_found", "s3_uri": self.s3_uri},
+            )
 
     def _parse_aip_manifest(self) -> pd.DataFrame:
         """Read manifest-sha256.txt from AIP."""
@@ -159,7 +178,12 @@ class AIP:
         except ClientError as exc:
             if exc.response["Error"]["Code"] == "NoSuchKey":
                 raise AIPValidationError(
-                    "Could not find 'manifest-sha256.txt' for AIP."
+                    "Could not find 'manifest-sha256.txt' for AIP.",
+                    error_details={
+                        "type": "manifest_not_found",
+                        "s3_uri": f"{self.s3_uri}/manifest-sha256.txt",
+                        "error_code": exc.response["Error"]["Code"],
+                    },
                 ) from exc
         lines = manifest_data.strip().split("\n")
         data = []
@@ -196,14 +220,22 @@ class AIP:
         }
 
         if missing_in_aip:
+            missing_files = list(missing_in_aip)
             raise AIPValidationError(
-                "Files found in manifest but missing from AIP: "
-                + json.dumps(list(missing_in_aip))
+                "Files found in manifest but missing from AIP",
+                error_details={
+                    "type": "files_missing_in_aip",
+                    "missing_files": missing_files,
+                },
             )
         if missing_in_manifest:
+            missing_files = list(missing_in_manifest)
             raise AIPValidationError(
-                "Files found in AIP but missing from manifest: "
-                + json.dumps(list(missing_in_manifest))
+                "Files found in AIP but missing from manifest",
+                error_details={
+                    "type": "files_missing_in_manifest",
+                    "missing_files": missing_files,
+                },
             )
 
     def _get_aip_s3_inventory(self) -> pd.DataFrame:
@@ -213,7 +245,8 @@ class AIP:
 
         if len(inventory_df) == 0:
             raise AIPValidationError(
-                f"S3 Inventory data not found for S3 key: '{self.s3_key}'"
+                f"S3 Inventory data not found for S3 key: '{self.s3_key}'",
+                error_details={"type": "s3_inventory_not_found", "s3_key": self.s3_key},
             )
 
         # index by S3 key
@@ -325,6 +358,31 @@ class AIP:
             if row.checksum != self.file_checksums[row.filepath]:
                 mismatches.append(row.filepath)
         if mismatches:
+
+            error_details = {
+                "type": "checksum_mismatch",
+                "mismatched_files": mismatches,
+                "manifest_checksums": {
+                    row.filepath: row.checksum
+                    for _, row in self.manifest_df.iterrows()
+                    if row.filepath in mismatches
+                },
+                "s3_checksums": {
+                    filepath: self.file_checksums[filepath] for filepath in mismatches
+                },
+            }
+
+            file_limit = 100
+            if len(error_details["manifest_checksums"]) > file_limit:
+                error_details["manifest_checksums"] = {
+                    "warning": "too many individual files to list"
+                }
+            if len(error_details["s3_checksums"]) > file_limit:
+                error_details["s3_checksums"] = {
+                    "warning": "too many individual files to list"
+                }
+
             raise AIPValidationError(
-                f"""Mismatched checksums for files: {json.dumps(mismatches)}"""
+                """Mismatched checksums for files""",
+                error_details=error_details,
             )

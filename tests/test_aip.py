@@ -40,11 +40,10 @@ class TestValidationResponse:
 
     def test_to_json(self):
         response = ValidationResponse(s3_uri="s3://bucket/aip", valid=True, elapsed=1.5)
-        json_result = response.to_json()
+        json_result = response.to_json(exclude=["manifest", "error", "error_details"])
         assert isinstance(json_result, str)
         assert (
-            json_result
-            == '{"s3_uri": "s3://bucket/aip", "valid": true, "elapsed": 1.5, "manifest": null, "error": null}'
+            json_result == '{"s3_uri": "s3://bucket/aip", "valid": true, "elapsed": 1.5}'
         )
 
 
@@ -155,6 +154,10 @@ class TestAIP:
 
             assert response.valid is False
             assert response.error == "Bagit AIP folder not found in S3: s3://bucket/aip"
+            assert response.error_details == {
+                "type": "aip_folder_not_found",
+                "s3_uri": "s3://bucket/aip",
+            }
 
     def test_check_aip_files_match_manifest_missing_files(
         self, mock_aip_folder, mock_manifest_data
@@ -177,10 +180,10 @@ class TestAIP:
             "data/file2.txt",
         ]
 
-        with pytest.raises(AIPValidationError) as excinfo:
+        with pytest.raises(AIPValidationError) as exc:
             aip._check_aip_files_match_manifest()
 
-        assert "Files found in manifest but missing from AIP" in str(excinfo.value)
+        assert "Files found in manifest but missing from AIP" in str(exc.value)
 
     def test_check_aip_files_match_manifest_extra_files(
         self, mock_aip_folder, mock_manifest_data
@@ -196,10 +199,10 @@ class TestAIP:
             "data/file2.txt",
         ]
 
-        with pytest.raises(AIPValidationError) as excinfo:
+        with pytest.raises(AIPValidationError) as exc:
             aip._check_aip_files_match_manifest()
 
-        assert "Files found in AIP but missing from manifest" in str(excinfo.value)
+        assert "Files found in AIP but missing from manifest" in str(exc.value)
 
     def test_check_checksums_mismatch(self):
         aip = AIP("s3://bucket/aip")
@@ -214,11 +217,41 @@ class TestAIP:
             "data/file2.txt": "wrong",  # Doesn't match
         }
 
-        with pytest.raises(AIPValidationError) as excinfo:
+        with pytest.raises(AIPValidationError) as exc:
             aip._check_checksums()
 
-        assert "Mismatched checksums for files" in str(excinfo.value)
-        assert "data/file2.txt" in str(excinfo.value)
+        assert "Mismatched checksums for files" in str(exc.value)
+        assert "data/file2.txt" in exc.value.error_details["mismatched_files"]
+
+    def test_check_checksums_mismatch_truncation(self):
+        aip = AIP("s3://bucket/aip")
+
+        # create mismatched files exceeding the file limit
+        file_count = 150
+        manifest_data = []
+        file_checksums = {}
+        for i in range(file_count):
+            filepath = f"data/file{i}.txt"
+            manifest_data.append({"filepath": filepath, "checksum": f"expected{i}"})
+            file_checksums[filepath] = f"actual{i}"
+
+        # mock manifest data and checksums to provoke checksum mismatches
+        aip.manifest_df = pd.DataFrame(manifest_data)
+        aip.file_checksums = file_checksums
+        with pytest.raises(AIPValidationError) as exc:
+            aip._check_checksums()
+
+        # check that error details are truncated
+        assert "warning" in exc.value.error_details["manifest_checksums"]
+        assert (
+            exc.value.error_details["manifest_checksums"]["warning"]
+            == "too many individual files to list"
+        )
+        assert "warning" in exc.value.error_details["s3_checksums"]
+        assert (
+            exc.value.error_details["s3_checksums"]["warning"]
+            == "too many individual files to list"
+        )
 
     def test_get_aip_file_checksums(self):
         """Test that _get_aip_file_checksums correctly processes files in parallel."""
@@ -367,6 +400,10 @@ class TestAIPIntegration:
             f"S3 Inventory data not found for S3 key: '{integration_prefix}/valid-aip'"
             in result.error
         )
+        assert result.error_details == {
+            "type": "s3_inventory_not_found",
+            "s3_key": f"{integration_prefix}/valid-aip",
+        }
 
     @pytest.mark.parametrize(
         "test_case",
@@ -381,6 +418,10 @@ class TestAIPIntegration:
                     }
                 ],
                 "expected_error": 'Files found in manifest but missing from AIP: ["data/file1.txt"]',
+                "expected_error_details": {
+                    "type": "files_missing_in_aip",
+                    "missing_files": ["data/file1.txt"],
+                },
             },
             {
                 "fixture_path": "tests/fixtures/aips/missing-file-in-manifest",
@@ -395,6 +436,10 @@ class TestAIPIntegration:
                     },
                 ],
                 "expected_error": 'Files found in AIP but missing from manifest: ["data/file1.txt"]',
+                "expected_error_details": {
+                    "type": "files_missing_in_manifest",
+                    "missing_files": ["data/file1.txt"],
+                },
             },
             {
                 "fixture_path": "tests/fixtures/aips/checksum-mismatch",
@@ -405,6 +450,14 @@ class TestAIPIntegration:
                     }
                 ],
                 "expected_error": 'Mismatched checksums for files: ["data/file1.txt"]',
+                "expected_error_details": {
+                    "type": "checksum_mismatch",
+                    "mismatched_files": ["data/file1.txt"],
+                    "manifest_checksums": {
+                        "data/file1.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    },
+                    "s3_checksums": {"data/file1.txt": "different_checksum"},
+                },
             },
         ],
         ids=["missing-file-in-aip", "missing-file-in-manifest", "checksum-mismatch"],
@@ -428,7 +481,33 @@ class TestAIPIntegration:
 
         with patch.object(aip, "_get_aip_s3_inventory") as mocked_inventory:
             mocked_inventory.return_value = pd.DataFrame(inventory_data).set_index("key")
-            result = aip.validate()
+
+            # for checksum mismatch test, we need to mock the checksums
+            if "checksum-mismatch" in fixture_path:
+                with patch.object(aip, "_get_aip_file_checksums") as mock_checksums:
+                    mock_checksums.return_value = {"data/file1.txt": "different_checksum"}
+                    result = aip.validate()
+            else:
+                result = aip.validate()
 
         assert not result.valid
         assert result.error == test_case["expected_error"]
+
+        # check that error_details has the expected structure
+        expected_error_details = test_case["expected_error_details"]
+        assert result.error_details["type"] == expected_error_details["type"]
+
+        # check specific fields based on error type
+        if (
+            expected_error_details["type"] == "files_missing_in_aip"
+            or expected_error_details["type"] == "files_missing_in_manifest"
+        ):
+            assert set(result.error_details["missing_files"]) == set(
+                expected_error_details["missing_files"]
+            )
+        elif expected_error_details["type"] == "checksum_mismatch":
+            assert set(result.error_details["mismatched_files"]) == set(
+                expected_error_details["mismatched_files"]
+            )
+            assert "manifest_checksums" in result.error_details
+            assert "s3_checksums" in result.error_details

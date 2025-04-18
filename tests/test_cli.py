@@ -82,11 +82,15 @@ class TestValidateCommand:
     def test_validate_command_failure(self):
         runner = CliRunner()
         with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
-            mock_validate.return_value = {"valid": False, "error": "Validation failed"}
+            mock_validate.return_value = {
+                "valid": False,
+                "error": "Validation failed",
+                "error_details": {"problem": "serious"},
+            }
 
             result = runner.invoke(cli, ["validate", "--aip-uuid", "test-uuid"])
             assert result.exit_code == 1
-            assert "AIP validation error: Validation failed" in result.output
+            assert "Validation failed" in result.output
 
     def test_validate_missing_required_args(self):
         cli_usage_error = 2
@@ -165,11 +169,15 @@ class TestValidateAipViaLambda:
     def test_validate_aip_via_lambda_with_uuid(self):
         with patch("requests.post") as mock_post:
             mock_response = MagicMock()
+            mock_response.status_code = 200
             mock_response.json.return_value = {"valid": True, "elapsed": 1.5}
             mock_post.return_value = mock_response
 
             result = validate_aip_via_lambda(aip_uuid="test-uuid")
-            assert result == {"valid": True, "elapsed": 1.5}
+            assert result == {
+                "valid": True,
+                "elapsed": 1.5,
+            }
 
             args, kwargs = mock_post.call_args
             assert kwargs["json"]["aip_uuid"] == "test-uuid"
@@ -178,6 +186,7 @@ class TestValidateAipViaLambda:
     def test_validate_aip_via_lambda_with_s3_uri(self):
         with patch("requests.post") as mock_post:
             mock_response = MagicMock()
+            mock_response.status_code = 200
             mock_response.json.return_value = {"valid": True, "elapsed": 1.5}
             mock_post.return_value = mock_response
 

@@ -76,9 +76,9 @@ class TestReadS3Object:
     def test_read_s3_object_not_found(self, mock_s3_client):
         error_response = {"Error": {"Code": "NoSuchKey", "Message": "Not Found"}}
         mock_s3_client.get_object.side_effect = ClientError(error_response, "GetObject")
-        with pytest.raises(ClientError) as excinfo:
+        with pytest.raises(ClientError) as exc:
             S3Client.read_s3_object("s3://bucket/file.txt")
-        assert "NoSuchKey" in str(excinfo.value)
+        assert "NoSuchKey" in str(exc.value)
 
 
 class TestChecksumMethods:
@@ -98,9 +98,9 @@ class TestChecksumMethods:
     def test_generate_checksum_for_object_error(self, mock_s3_client):
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}
         mock_s3_client.copy_object.side_effect = ClientError(error_response, "CopyObject")
-        with pytest.raises(ClientError) as excinfo:
+        with pytest.raises(ClientError) as exc:
             S3Client.generate_checksum_for_object("s3://bucket/file.txt")
-        assert "AccessDenied" in str(excinfo.value)
+        assert "AccessDenied" in str(exc.value)
 
     def test_get_checksum_for_object_success(self, mock_s3_client):
         mock_s3_client.head_object.return_value = {"ChecksumSHA256": "abc123checksum"}
