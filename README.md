@@ -92,9 +92,14 @@ Usage: -c bulk-validate [OPTIONS]
 Options:
   -i, --input-csv-filepath TEXT   Filepath of CSV with AIP UUIDs or S3 URIs to
                                   be validated.  [required]
-  -o, --output-csv-filepath TEXT  Filepath of CSV for validation results.
-  -d, --details                   Return full AIP validation details as JSON
-                                  to stdout instead of 'OK'.
+  -o, --output-csv-filepath TEXT  Filepath of CSV for validation results.  If
+                                  file already exists, previous results will
+                                  be considered to skip re-validating AIPs for
+                                  this run.  This allows for lightweight
+                                  resume / retry functionality for a given
+                                  run.  [required]
+  -r, --retry-failed              Retry validation of AIPs if found in pre-
+                                  existing results but had failed.
   -w, --max-workers INTEGER       Maximum number of concurrent validation
                                   workers.  This should not exceed the maximum
                                   concurrency for the deployed AWS Lambda
@@ -112,7 +117,10 @@ pipenv run cli --verbose validate --aip-uuid="c73d10a7-7cd2-406f-95b6-b12e8f2da6
 pipenv run cli --verbose validate --s3-uri="s3://my-bucket/c73d/10a7/7cd2/406f/95bf/b12e/8f2d/a646/my-amazing-aip-c73d10a7-7cd2-406f-95b6-b12e8f2da646"
 
 # bulk validate against a list of AIPs in a CSV
-pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.csv"
+pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.csv" --output-csv-filepath="output/bulk-uuids-output.csv"
+
+# bulk validate against pre-existing file and retry failures
+pipenv run cli --verbose bulk-validate -i output/all-aips-2025-05-02.csv -o output/all-aips-2025-05-02.csv --retry-failed
 ```
 
 
