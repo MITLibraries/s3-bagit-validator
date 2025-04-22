@@ -148,15 +148,8 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
 @click.option(
     "--output-csv-filepath",
     "-o",
-    required=False,
+    required=True,
     help="Filepath of CSV for validation results.",
-)
-@click.option(
-    "--details",
-    "-d",
-    required=False,
-    is_flag=True,
-    help="Return full AIP validation details as JSON to stdout instead of 'OK'.",
 )
 @click.option(
     "--max-workers",
@@ -175,7 +168,6 @@ def bulk_validate(
     input_csv_filepath: str,
     output_csv_filepath: str,
     *,
-    details: bool,
     max_workers: int,
 ) -> None:
     """Bulk validate AIPs stored in S3 via the AIP UUID or S3 URI."""
@@ -245,9 +237,6 @@ def bulk_validate(
     valid_count = results_df["valid"].sum()
     total_count = len(results_df)
     click.echo(f"Validation complete: {valid_count}/{total_count} AIPs valid")
-
-    if details:
-        click.echo(results_df.to_json(orient="records", indent=2))
 
     if output_csv_filepath:
         results_df.to_csv(output_csv_filepath, index=False)
