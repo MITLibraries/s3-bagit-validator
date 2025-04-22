@@ -101,27 +101,7 @@ class TestValidateCommand:
 
 
 class TestBulkValidateCommand:
-    def test_bulk_validate_success(self):
-        runner = CliRunner()
-        with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
-            mock_validate.return_value = {
-                "valid": True,
-                "elapsed": 1.5,
-                "s3_uri": "s3://bucket/test",
-            }
-
-            result = runner.invoke(
-                cli,
-                [
-                    "bulk-validate",
-                    "-i",
-                    "tests/fixtures/cli/bulk-validation/valid_input.csv",
-                ],
-            )
-            assert result.exit_code == 0
-            assert "Validation complete: 2/2 AIPs valid" in result.output
-
-    def test_bulk_validate_with_output_csv(self, tmp_path):
+    def test_bulk_validate_success(self, tmp_path):
         runner = CliRunner()
         output_path = tmp_path / "output.csv"
 
@@ -149,14 +129,17 @@ class TestBulkValidateCommand:
             assert len(output_data) == 1
             assert bool(output_data["valid"].iloc[0]) is True
 
-    def test_bulk_validate_invalid_csv(self):
+    def test_bulk_validate_invalid_input_csv(self, tmp_path):
         runner = CliRunner()
+        output_path = tmp_path / "output.csv"
         result = runner.invoke(
             cli,
             [
                 "bulk-validate",
                 "-i",
                 "tests/fixtures/cli/bulk-validation/invalid_input.csv",
+                "-o",
+                output_path,
             ],
         )
         assert result.exit_code == 1
