@@ -187,46 +187,23 @@ def bulk_validate(
     results_df["error_details"] = None
     results_df["elapsed"] = None
 
+    # init a thread lock ensuring only one thread writes to results_df at once
     results_lock = Lock()
-
-    def validate_worker(index: Any, row: pd.Series) -> None:  # noqa: ANN401
-        """Worker function to validate a single AIP and update results DataFrame."""
-        aip_uuid = row.get("aip_uuid")
-        s3_uri = row.get("aip_s3_uri")
-
-        if not (aip_uuid or s3_uri):
-            error_msg = "Row must have either aip_uuid or aip_s3_uri"
-            logger.error(error_msg)
-            with results_lock:
-                results_df.loc[index, "error"] = error_msg
-            return
-
-        try:
-            result = validate_aip_via_lambda(
-                aip_uuid=aip_uuid, aip_s3_uri=s3_uri, verbose=ctx.obj["VERBOSE"]
-            )
-
-            # update results dataframe for AIP
-            with results_lock:
-                results_df.loc[index, "aip_s3_uri"] = result.get("s3_uri")
-                results_df.loc[index, "valid"] = bool(result.get("valid", False))
-                results_df.loc[index, "error"] = result.get("error")
-                results_df.loc[index, "error_details"] = json.dumps(
-                    result.get("error_details")
-                )
-                results_df.loc[index, "elapsed"] = result.get("elapsed")
-
-        except Exception as exc:  # noqa: BLE001
-            error_msg = f"Error validating AIP {aip_uuid or s3_uri}: {exc}"
-            logger.error(error_msg)
-            with results_lock:
-                results_df.loc[index, "error"] = str(exc)
 
     # invoke lambda in parallel via threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
-        for index, row in input_df.iterrows():
-            futures[executor.submit(validate_worker, index, row)] = (index, row)
+        for row_idx, row in input_df.iterrows():
+            futures[
+                executor.submit(
+                    validate_aip_bulk_worker,
+                    row_idx,
+                    row,
+                    results_lock,
+                    results_df,
+                    verbose=ctx.obj["VERBOSE"],
+                )
+            ] = (row_idx, row)
             time.sleep(0.25)
         for completed, _future in enumerate(concurrent.futures.as_completed(futures)):
             logger.info(
@@ -291,6 +268,53 @@ def validate_aip_via_lambda(
     logger.info(f"AIP {aip_uuid or aip_s3_uri}, validation result: {status}")
 
     return result
+
+
+def validate_aip_bulk_worker(
+    row_idx: Any,  # noqa: ANN401
+    row: pd.Series,
+    results_lock: Lock,
+    results_df: pd.DataFrame,
+    *,
+    verbose: bool = False,
+) -> None:
+    """Bulk worker function to validate a single AIP and update a results DataFrame."""
+    aip_uuid = row.get("aip_uuid")
+    s3_uri = row.get("aip_s3_uri")
+
+    # ensure either AIP UUID or S3 URI present for row
+    if not (aip_uuid or s3_uri):
+        error_msg = "Row must have either aip_uuid or aip_s3_uri"
+        logger.error(error_msg)
+        with results_lock:
+            results_df.loc[row_idx, "error"] = error_msg
+        return
+
+    # attempt validation and update a results dataframe
+    try:
+        result = validate_aip_via_lambda(
+            aip_uuid=aip_uuid, aip_s3_uri=s3_uri, verbose=verbose
+        )
+
+        with results_lock:
+            results_df.loc[row_idx] = {  # type: ignore[call-overload]
+                "aip_s3_uri": result.get("s3_uri"),
+                "valid": bool(result.get("valid", False)),
+                "error": result.get("error"),
+                "error_details": (
+                    json.dumps(result.get("error_details"))
+                    if result.get("error_details") is not None
+                    else None
+                ),
+                "elapsed": result.get("elapsed"),
+            }
+
+    # catch any exceptions as a validation error
+    except Exception as exc:  # noqa: BLE001
+        error_msg = f"Error validating AIP {aip_uuid or s3_uri}: {exc}"
+        logger.error(error_msg)
+        with results_lock:
+            results_df.loc[row_idx, "error"] = str(exc)
 
 
 if __name__ == "__main__":
