@@ -3,6 +3,7 @@
 import concurrent.futures
 import json
 import logging
+import os.path
 import time
 from http import HTTPStatus
 from threading import Lock
@@ -17,6 +18,8 @@ from lambdas.config import Config, configure_logger
 
 logger = logging.getLogger(__name__)
 CONFIG = Config()
+
+RAW_RESPONSE_TRUNCATE_LENGTH = 480
 
 
 @click.group()
@@ -149,7 +152,18 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
     "--output-csv-filepath",
     "-o",
     required=True,
-    help="Filepath of CSV for validation results.",
+    help=(
+        "Filepath of CSV for validation results.  If file already exists, previous "
+        "results will be considered to skip re-validating AIPs for this run.  This "
+        "allows for lightweight resume / retry functionality for a given run."
+    ),
+)
+@click.option(
+    "--retry-failed",
+    "-r",
+    required=False,
+    is_flag=True,
+    help="Retry validation of AIPs if found in pre-existing results but had failed.",
 )
 @click.option(
     "--max-workers",
@@ -168,10 +182,15 @@ def bulk_validate(
     input_csv_filepath: str,
     output_csv_filepath: str,
     *,
+    retry_failed: bool,
     max_workers: int,
 ) -> None:
     """Bulk validate AIPs stored in S3 via the AIP UUID or S3 URI."""
-    input_df = pd.read_csv(input_csv_filepath).replace({np.nan: None})
+    try:
+        input_df = pd.read_csv(input_csv_filepath).replace({np.nan: None})
+    except FileNotFoundError as exc:
+        click.echo(str(exc), err=True)
+        ctx.exit(1)
 
     if not {"aip_uuid", "aip_s3_uri"}.intersection(input_df.columns):
         error_msg = "Input CSV must have 'aip_uuid' and/or 'aip_s3_uri' columns."
@@ -187,13 +206,42 @@ def bulk_validate(
     results_df["error_details"] = None
     results_df["elapsed"] = None
 
-    # init a thread lock ensuring only one thread writes to results_df at once
+    # handle pre-existing results
+    skip_aip_uuids = []
+    if os.path.exists(output_csv_filepath):
+
+        # update results with pre-existing results
+        existing_results_df = pd.read_csv(output_csv_filepath)
+        existing_results_indexed = existing_results_df.set_index("aip_uuid")
+        results_df_indexed = results_df.set_index("aip_uuid")
+        results_df_indexed.update(existing_results_indexed)
+        results_df = results_df_indexed.reset_index()
+
+        # prepare list of AIPs to skip
+        if retry_failed:
+            skip_aip_uuids = list(results_df[results_df.valid].aip_uuid)
+        else:
+            skip_aip_uuids = list(results_df[~results_df.valid.isna()].aip_uuid)
+        logger.info(
+            f"Found {len(skip_aip_uuids)} already validated AIPs, will skip these."
+        )
+
+    # init the output CSV file with previous results (if any)
+    results_df[
+        (results_df.aip_uuid.isin(skip_aip_uuids))
+        & (results_df.aip_uuid.isin(input_df.aip_uuid))
+    ].to_csv(output_csv_filepath, index=False)
+
+    # init a thread lock for all writes to results dataframe and output CSV
     results_lock = Lock()
 
     # invoke lambda in parallel via threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
         for row_idx, row in input_df.iterrows():
+            if row.aip_uuid in skip_aip_uuids:
+                logger.debug(f"AIP '{row.aip_uuid}' already validated, skipping.")
+                continue
             futures[
                 executor.submit(
                     validate_aip_bulk_worker,
@@ -201,6 +249,7 @@ def bulk_validate(
                     row,
                     results_lock,
                     results_df,
+                    output_csv_filepath,
                     verbose=ctx.obj["VERBOSE"],
                 )
             ] = (row_idx, row)
@@ -213,11 +262,10 @@ def bulk_validate(
 
     valid_count = results_df["valid"].sum()
     total_count = len(results_df)
-    click.echo(f"Validation complete: {valid_count}/{total_count} AIPs valid")
-
-    if output_csv_filepath:
-        results_df.to_csv(output_csv_filepath, index=False)
-        click.echo(f"Results saved to {output_csv_filepath}")
+    click.echo(
+        f"Validation complete: {valid_count}/{total_count} AIPs valid.  "
+        f"Results saved to '{output_csv_filepath}'"
+    )
 
 
 def validate_aip_via_lambda(
@@ -252,17 +300,26 @@ def validate_aip_via_lambda(
         timeout=900,  # 15 min timeout (AWS Lambda maximum) for large AIPs
     )
 
-    if response.status_code != HTTPStatus.OK:
-        logger.warning(f"Non 200 response from Lambda: {response.content.decode()}")
-
+    # parse response from lambda
     try:
         result = response.json()
     except Exception:
         logger.error(
             "Error parsing JSON from Lambda response. "
-            f"Raw response: {response.content.decode()[:480]}"  # limit output
+            f"Raw response: {response.content.decode()[:RAW_RESPONSE_TRUNCATE_LENGTH]}"
         )
         raise
+
+    # if lambda returns non-200 (OK) response, prepare result payload
+    if response.status_code != HTTPStatus.OK:
+        message = (
+            "Non 200 response from Lambda: "
+            f"{response.content.decode()[:RAW_RESPONSE_TRUNCATE_LENGTH]}"
+        )
+        logger.warning(message)
+        if not result.get("error"):
+            result["error"] = message
+        result["valid"] = False
 
     status = "OK" if result.get("valid", False) else f"FAILED: {result.get('error')}"
     logger.info(f"AIP {aip_uuid or aip_s3_uri}, validation result: {status}")
@@ -275,10 +332,11 @@ def validate_aip_bulk_worker(
     row: pd.Series,
     results_lock: Lock,
     results_df: pd.DataFrame,
+    output_csv_filepath: str,
     *,
     verbose: bool = False,
 ) -> None:
-    """Bulk worker function to validate a single AIP and update a results DataFrame."""
+    """Bulk validator worker function."""
     aip_uuid = row.get("aip_uuid")
     s3_uri = row.get("aip_s3_uri")
 
@@ -298,6 +356,7 @@ def validate_aip_bulk_worker(
 
         with results_lock:
             results_df.loc[row_idx] = {  # type: ignore[call-overload]
+                "aip_uuid": row.aip_uuid,
                 "aip_s3_uri": result.get("s3_uri"),
                 "valid": bool(result.get("valid", False)),
                 "error": result.get("error"),
@@ -315,6 +374,11 @@ def validate_aip_bulk_worker(
         logger.error(error_msg)
         with results_lock:
             results_df.loc[row_idx, "error"] = str(exc)
+
+    # incrementally update the output CSV
+    with results_lock:
+        row_df = pd.DataFrame([results_df.loc[row_idx]])
+        row_df.to_csv(output_csv_filepath, mode="a", header=False, index=False)
 
 
 if __name__ == "__main__":
