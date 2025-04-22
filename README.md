@@ -12,31 +12,7 @@ AWS Lambda to validate a [Bagit](https://www.ietf.org/rfc/rfc8493.txt) bag store
 
 ### Running Locally with Docker
 
-<https://docs.aws.amazon.com/lambda/latest/dg/images-test.html>
-
-- Build the container:
-
-```bash
-docker build -t validator:latest .
-```
-
-- Run the default handler for the container:
-
-```bash
-docker run --env-file .env -p 9000:8080 validator:latest
-```
-
-- Post to the container:
-
-```bash
-curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
-```
-
-- Observe output:
-
-```
-"You have successfully called this lambda!"
-```
+See [instructions for running via AWS SAM CLI here](tests/sam/README.md).
 
 ## Command Line Interface (CLI)
 
@@ -45,9 +21,11 @@ This application includes a CLI that is designed to invoke the deployed AWS Lamb
 To run CLI commands ensure the following environment variables are set:
 ```shell
 WORKSPACE=### Environment "dev", "stage", or "prod"
-AIP_VALIDATOR_ENDPOINT=### Deployed AWS Lambda endpoint URL.
+AIP_VALIDATOR_ENDPOINT=### Deployed AWS Lambda endpoint URL or local URL http://localhost:3000/s3-bagit-validator if running via SAM
 CHALLENGE_SECRET=### Secret string that is passed as part of lambda invocation payload and checked before running.
 ```
+
+- see the section "Running Locally with Docker" to run the lambda locally for testing  
 
 Then run one of the following CLI commands:
 
@@ -162,11 +140,13 @@ LAMBDA_MAX_CONCURRENCY=### Maximum number of parallel workers for CLI bulk valid
 
 ## Related Assets
 
-* Infrastructure: TODO
-
 ```mermaid
 mindmap
-    root((s3-bagit-validator))        
+	root((s3-bagit-validator))
+		AWS
+			S3
+				AIP files from Archivematica
+				S3 Inventory data
 ```
 
 ## Maintainers
