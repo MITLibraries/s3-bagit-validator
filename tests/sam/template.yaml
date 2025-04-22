@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Resources:
+  S3BagitValidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Timeout: 900
+      MemorySize: 2048
+      Events:
+        BagitApi:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+      ImageUri: s3bagitvalidatorfunction:latest
+      Environment:
+        # While tests/sam/env.json is required for sensitive env vars, ALL env vars
+        # used in the lambda must exist here as well, even just as "..." placeholders.
+        Variables:
+          WORKSPACE: "dev"
+          WARNING_ONLY_LOGGERS: "asyncio,botocore,urllib3,s3transfer,boto3"
+          SENTRY_DSN: "None"
+          CHALLENGE_SECRET: "totally-local-s3-bagit-validating"
+          S3_INVENTORY_LOCATIONS: "..."
+    Metadata:
+      DockerContext: ../../.
+      DockerTag: latest
+      Dockerfile: Dockerfile
+      SamResourceId: S3BagitValidatorFunction

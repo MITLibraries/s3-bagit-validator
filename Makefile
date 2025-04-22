@@ -103,3 +103,13 @@ black-apply: # Apply changes with 'black'
 
 ruff-apply: # Resolve 'fixable errors' with 'ruff'
 	pipenv run ruff check --fix .
+
+
+####################################
+# SAM Lambda
+####################################
+sam-build: # Build SAM image for running Lambda locally
+	sam build --template tests/sam/template.yaml
+
+sam-run: # Run lambda locally as an HTTP server
+	sam local start-api --template tests/sam/template.yaml --env-vars tests/sam/env.json
