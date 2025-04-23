@@ -1,4 +1,4 @@
-# ruff: noqa: D205, D209
+# ruff: noqa: D205, D209, PLR2004
 
 import json
 import shutil
@@ -213,7 +213,7 @@ class TestBulkValidateCommand:
 
         # two rows written despite other threads failing
         output_df = pd.read_csv(output_csv)
-        assert len(output_df)
+        assert len(output_df) == 2
 
     def test_bulk_validate_existing_incrementally_writes_during_parallel_validation(
         self, tmp_path, mocker, reraise
@@ -232,12 +232,12 @@ class TestBulkValidateCommand:
             # this use of 'reraise' (from 'pytest-reraise' library) is required for
             # bubbling up assertion failures that occur as part of a multithreaded process
             with reraise:
-                _row_idx, _row, _results_lock, _results_df, _output_csv_filepath = args
+                _row_index, _row, _results_lock, _results_df, _output_csv_filepath = args
                 with _results_lock:
                     output_csv_df = pd.read_csv(_output_csv_filepath)
 
                     # assert that CSV is growing relative to this AIP getting validated
-                    assert len(output_csv_df) == _row_idx + 1
+                    assert len(output_csv_df) == _row_index + 1
                     assert output_csv_df.iloc[-1].aip_uuid == _row.aip_uuid
 
                 return result
