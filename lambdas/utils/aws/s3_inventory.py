@@ -169,16 +169,17 @@ class S3InventoryClient:
         for that AIP.  To do this, the AIP UUID -- which is minted in Archivematica -- is
         extracted from the S3 key.
 
-        Example s3 key for an AIP:
+        Example s3 prefix for an AIP:
         5b33/1bf3/eb1f/4017/bbe8/c24a/9f60/f4cd/2014_039_002-5b331bf3-eb1f-4017-bbe8-c24a9f60f4cd
 
         Where the UUID can be seen as both part of the leading pairtree path and at the
         end of the key:
         5b331bf3-eb1f-4017-bbe8-c24a9f60f4cd
 
-        The following regex is used in this DuckDB SQL query to find a valid UUID in the
-        S3 key:
-        [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
+        A regular expression is used to extract AIP UUIDs from S3 keys by locating the
+        last valid UUID before files like `/bagit.txt` or `/bag-info.txt`.  There is some
+        room for false positives here, but other checks confirm the validity of bags after
+        a UUID + prefix key is identified from this Inventory data.
 
         The dataframe includes information such as:
             - AIP UUID
@@ -190,47 +191,78 @@ class S3InventoryClient:
         if self._aips_df is not None:
             return self._aips_df
 
-        # ruff: noqa: E501
-        query = """
-        with cdps_aip_inventory as (
-            select * from inventory
-            where is_latest
-            and not is_delete_marker
-        ),
-        cdps_aip_inventory_with_aip_uuid as (
-            select
-                bucket,
-                -- extract the *first* UUID encountered in the key
-                case
-                    when key ~ '.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*'
-                    then regexp_extract(key, '.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*', 1)
-                    else null
-                end as aip_uuid,
-                -- extract the inventory root as they key up until, and inclusive, of the first UUID
-                case
-                    when key ~ '.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*'
-                    then regexp_extract(key, '(.+?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}).*', 1)
-                    else null
-                end as aip_s3_key,
-                key,
-                size,
-                last_modified_date
-            from cdps_aip_inventory
+        aip_regex = (
+            """(.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))/(.*)"""
         )
-        select
-            bucket,
-            aip_uuid,
-            aip_s3_key,
-            concat('s3://', bucket, '/', aip_s3_key) as aip_s3_uri,
-            count(*) as aip_files_count,
-            sum(size) as total_size_bytes,
-            min(last_modified_date) as earliest_file_date,
-            max(last_modified_date) as latest_file_date
-        from cdps_aip_inventory_with_aip_uuid
-        where aip_uuid is not null
-        group by bucket, aip_uuid, aip_s3_key, aip_s3_uri
-        order by aip_files_count desc;
-        """
+        # ruff: noqa: E501, UP032
+        query = """
+            -- CTE of all inventory data rows
+            with cdps_aip_inventory as (
+                select * from inventory
+                where is_latest
+                and not is_delete_marker
+            ),
+            -- CTE that attempts to extract UUID and AIP prefix from S3 object keys
+            cdps_aip_inventory_with_aip_uuid as (
+                select
+                    bucket,
+                    -- the 2nd group in the regex is the AIP UUID
+                    case
+                        when key ~ '{aip_regex}'
+                        then regexp_extract(key, '{aip_regex}', 2)
+                    end as aip_uuid,
+                    -- the 1st group in the regex match is the S3 prefix up until,
+                    -- and including, the AIP UUID
+                    case
+                        when key ~ '{aip_regex}'
+                        then regexp_extract(key, '{aip_regex}', 1)
+                    end as aip_s3_key,
+                    -- the 3rd group is any file suffix after the AIP UUID
+                    case
+                        when key ~ '{aip_regex}'
+                        then regexp_extract(key, '{aip_regex}', 3)
+                    end as aip_suffix,
+                    key,
+                    size,
+                    last_modified_date
+                from cdps_aip_inventory
+            ),
+            -- CTE that groups AIPs by UUID and prefix
+            aips as (
+                select
+                    bucket,
+                    aip_uuid,
+                    aip_s3_key,
+                    concat('s3://', bucket, '/', aip_s3_key) as aip_s3_uri,
+                    count(*) as aip_files_count,
+                    sum(size) as total_size_bytes,
+                    min(last_modified_date) as earliest_file_date,
+                    max(last_modified_date) as latest_file_date,
+                    list(aip_suffix)::json as aip_file_keys
+                from cdps_aip_inventory_with_aip_uuid
+                where aip_uuid is not null
+                group by bucket, aip_uuid, aip_s3_key, aip_s3_uri
+            ),
+            -- CTE that limits to what appear to be valid Bagit AIPs (has 'bagit.txt')
+            bagit_aips as (
+                select
+                    bucket,
+                    aip_uuid,
+                    aip_s3_key,
+                    aip_s3_uri,
+                    aip_files_count,
+                    total_size_bytes,
+                    earliest_file_date,
+                    latest_file_date
+                from aips
+                where 'bagit.txt' in aip_file_keys
+            )
+            select * from bagit_aips
+            order by aip_files_count desc
+            ;
+            """.format(
+            aip_regex=aip_regex
+        )
         # ruff: enable: E501
 
         aips_df = self.query_inventory(query)
@@ -261,9 +293,16 @@ class S3InventoryClient:
         """Retrieve information about a specific AIP by its UUID."""
         aips_df = self.get_aips_df()
 
+        # AIP UUID not found in Inventory data associated with a valid Bagit structure
         if aip_uuid not in aips_df["aip_uuid"].to_numpy():
-            raise ValueError(f"AIP UUID '{aip_uuid}' not found in S3 Inventory data")
+            raise ValueError(
+                f"AIP UUID '{aip_uuid}' not found in S3 Inventory data "
+                "or not associated with a valid Bagit AIP"
+            )
+
         aip = aips_df.set_index("aip_uuid").loc[aip_uuid]
+
+        # AIP UUID found associated with multiple S3 prefixes (e.g. multiple buckets)
         if isinstance(aip, pd.DataFrame):
             raise TypeError(
                 f"Multiple entries found for AIP UUID '{aip_uuid}'in S3 Inventory data"
