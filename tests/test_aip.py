@@ -192,7 +192,8 @@ class TestAIP:
         with pytest.raises(AIPValidationError) as exc:
             aip._check_aip_files_match_manifest()
 
-        assert "Files found in manifest but missing from AIP" in str(exc.value)
+        assert "File(s) missing from AIP" in str(exc.value)
+        assert exc.value.error_details["type"] == "files_missing_from_aip"
 
     def test_check_aip_files_match_manifest_extra_files(
         self, mock_aip_folder, mock_manifest_data, aip
@@ -210,7 +211,8 @@ class TestAIP:
         with pytest.raises(AIPValidationError) as exc:
             aip._check_aip_files_match_manifest()
 
-        assert "Files found in AIP but missing from manifest" in str(exc.value)
+        assert "Unexpected file(s) in AIP" in str(exc.value)
+        assert exc.value.error_details["type"] == "unexpected_files_in_aip"
 
     def test_check_checksums_mismatch(self, aip):
         aip.manifest_df = pd.DataFrame(
