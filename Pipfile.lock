@@ -437,23 +437,21 @@
             "version": "==25.1.0"
         },
         "boto3-stubs": {
-            "extras": [
-                "s3"
-            ],
             "hashes": [
-                "sha256:a27cb833f4cfb1795acf04c6106297a552e66cd612c208618542d4abe5ce26bd",
-                "sha256:f859263ce76cb33a4c79dea545cd447588ca23a1fd09083c16f8e58605f89515"
+                "sha256:405cd777d41530cf8ed009d20b04daef1f7d4bd2fd9fd3636ac86eccdb55159c",
+                "sha256:e18f2dc194c4b8a29f61275ba039689d063c4775a78560e35a5ce820ec257fb5"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==1.37.28"
+            "version": "==1.38.2"
         },
         "botocore-stubs": {
             "hashes": [
-                "sha256:16c4e5976cb83b863884720350e245ddde73bd39cfe2c948d5ac57c70aaec89e",
-                "sha256:adb5376af3f142b01f0f5dd39aa1a155ecc38fd0a0fd070db96ac1c7b8cc16e9"
+                "sha256:59ca6261205ab4ea7595ee8987cac6e94bf658e0fcb36a2d7739b8a8e9e55de4",
+                "sha256:a4cfd53106592bddfb450339da25ef1eb2fd4cf6259a1d4a0daaf2413bfc0c90"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==1.37.28"
+            "version": "==1.38.2"
         },
         "certifi": {
             "hashes": [
@@ -1109,11 +1107,11 @@
         },
         "types-awscrt": {
             "hashes": [
-                "sha256:7bcd649aedca3c41007ca5757096d3b3bdb454b73ca66970ddae6c2c2f541c8c",
-                "sha256:e11298750c99647f7f3b98d6d6d648790096cd32d445fd0d49a6041a63336c9a"
+                "sha256:176d320a26990efc057d4bf71396e05be027c142252ac48cc0d87aaea0704280",
+                "sha256:aca96f889b3745c0e74f42f08f277fed3bf6e9baa2cf9b06a36f78d77720e504"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==0.25.7"
+            "version": "==0.26.1"
         },
         "types-pytz": {
             "hashes": [
@@ -1134,11 +1132,11 @@
         },
         "types-s3transfer": {
             "hashes": [
-                "sha256:05fde593c84270f19fd053f0b1e08f5a057d7c5f036b9884e68fb8cd3041ac30",
-                "sha256:2a76d92c07d4a3cb469e5343b2e7560e0b8078b2e03696a65407b8c44c861b61"
+                "sha256:101bbc5b7f00b71512374df881f480fc6bf63c948b5098ab024bf3370fbfb0e8",
+                "sha256:f8f59201481e904362873bf0be3267f259d60ad946ebdfcb847d092a1fa26f98"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==0.11.4"
+            "version": "==0.12.0"
         },
         "typing-extensions": {
             "hashes": [
