@@ -340,14 +340,6 @@ def validate_aip_bulk_worker(
     aip_uuid = row.get("aip_uuid")
     s3_uri = row.get("aip_s3_uri")
 
-    # ensure either AIP UUID or S3 URI present for row
-    if not (aip_uuid or s3_uri):
-        error_msg = "Row must have either aip_uuid or aip_s3_uri"
-        logger.error(error_msg)
-        with results_lock:
-            results_df.loc[row_index, "error"] = error_msg
-        return
-
     # attempt validation and update a results dataframe
     try:
         result = validate_aip_via_lambda(
