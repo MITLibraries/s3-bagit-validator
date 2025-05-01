@@ -189,8 +189,10 @@ def bulk_validate(
 
     # initialize results dataframe with input data
     results_df = input_df.copy()
+    results_df["aip_s3_uri"] = None
     results_df["valid"] = False
     results_df["error"] = None
+    results_df["error_details"] = None
     results_df["elapsed"] = None
 
     results_lock = Lock()
@@ -214,10 +216,13 @@ def bulk_validate(
 
             # update results dataframe for AIP
             with results_lock:
+                results_df.loc[index, "aip_s3_uri"] = result.get("s3_uri")
                 results_df.loc[index, "valid"] = bool(result.get("valid", False))
                 results_df.loc[index, "error"] = result.get("error")
+                results_df.loc[index, "error_details"] = json.dumps(
+                    result.get("error_details")
+                )
                 results_df.loc[index, "elapsed"] = result.get("elapsed")
-                results_df.loc[index, "aip_s3_uri"] = result.get("s3_uri")
 
         except Exception as exc:  # noqa: BLE001
             error_msg = f"Error validating AIP {aip_uuid or s3_uri}: {exc}"
@@ -230,7 +235,7 @@ def bulk_validate(
         futures = {}
         for index, row in input_df.iterrows():
             futures[executor.submit(validate_worker, index, row)] = (index, row)
-            time.sleep(0.1)
+            time.sleep(0.25)
         for completed, _future in enumerate(concurrent.futures.as_completed(futures)):
             logger.info(
                 f"Progress: {completed + 1}/{len(futures)} AIPs processed "
@@ -294,7 +299,7 @@ def validate_aip_via_lambda(
         raise
 
     status = "OK" if result.get("valid", False) else f"FAILED: {result.get('error')}"
-    logger.debug(f"AIP {aip_uuid or aip_s3_uri}, validation result: {status}")
+    logger.info(f"AIP {aip_uuid or aip_s3_uri}, validation result: {status}")
 
     return result
 
