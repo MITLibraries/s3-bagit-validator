@@ -198,39 +198,30 @@ def bulk_validate(
         click.echo(error_msg, err=True)
         ctx.exit(1)
 
-    # initialize results dataframe with input data
-    results_df = input_df.copy()
-    results_df["aip_s3_uri"] = None
-    results_df["valid"] = False
-    results_df["error"] = None
-    results_df["error_details"] = None
-    results_df["elapsed"] = None
+    # establish results dataframe in memory and output CSV file
+    if not os.path.exists(output_csv_filepath):
+        results_df = input_df.copy()
+        results_df["bucket"] = None
+        results_df["aip_uuid"] = None
+        results_df["aip_s3_uri"] = None
+        results_df["valid"] = False
+        results_df["error"] = None
+        results_df["error_details"] = None
+        results_df["elapsed"] = None
+        results_df[0:0].to_csv(output_csv_filepath, index=False)
 
-    # handle pre-existing results
-    skip_aip_uuids = []
-    if os.path.exists(output_csv_filepath):
-
-        # update results with pre-existing results
+    else:
         existing_results_df = pd.read_csv(output_csv_filepath)
-        existing_results_indexed = existing_results_df.set_index("aip_uuid")
-        results_df_indexed = results_df.set_index("aip_uuid")
-        results_df_indexed.update(existing_results_indexed)
-        results_df = results_df_indexed.reset_index()
 
-        # prepare list of AIPs to skip
+        # start with all rows from previous run where any validation occurred
+        results_df = existing_results_df[~existing_results_df["valid"].isna()].copy()
+
+        # if retrying failures, only keep valid AIPs from previous run
         if retry_failed:
-            skip_aip_uuids = list(results_df[results_df.valid].aip_uuid)
-        else:
-            skip_aip_uuids = list(results_df[~results_df.valid.isna()].aip_uuid)
-        logger.info(
-            f"Found {len(skip_aip_uuids)} already validated AIPs, will skip these."
-        )
+            results_df = results_df[results_df["valid"]]
 
-    # init the output CSV file with previous results (if any)
-    results_df[
-        (results_df.aip_uuid.isin(skip_aip_uuids))
-        & (results_df.aip_uuid.isin(input_df.aip_uuid))
-    ].to_csv(output_csv_filepath, index=False)
+        results_df.to_csv(output_csv_filepath, index=False)
+        logger.info(f"Found {len(results_df)} already validated AIPs, will skip these.")
 
     # init a thread lock for all writes to results dataframe and output CSV
     results_lock = Lock()
@@ -239,9 +230,14 @@ def bulk_validate(
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
         for row_index, row in input_df.iterrows():
-            if row.aip_uuid in skip_aip_uuids:
-                logger.debug(f"AIP '{row.aip_uuid}' already validated, skipping.")
+            row_uuid, row_uri = row.get("aip_uuid"), row.get("aip_s3_uri")
+            if row_uuid and row_uuid in list(results_df.aip_uuid):
+                logger.debug(f"AIP UUID '{row_uuid}' already validated, skipping.")
                 continue
+            if row_uri and row_uri in list(results_df.aip_s3_uri):
+                logger.debug(f"AIP S3 URI '{row_uri}' already validated, skipping.")
+                continue
+
             futures[
                 executor.submit(
                     validate_aip_bulk_worker,
