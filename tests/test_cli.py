@@ -149,11 +149,32 @@ class TestBulkValidateCommand:
         runner = CliRunner()
         with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
             # validation results are arbitrary
-            mock_validate.return_value = {
-                "valid": True,
-                "elapsed": 1.5,
-                "s3_uri": "s3://bucket/test",
-            }
+            mock_validate.side_effect = [
+                {
+                    "valid": True,
+                    "elapsed": 1.5,
+                    "aip_uuid": "test-uuid-1",
+                    "aip_s3_uri": "s3://bucket/test",
+                },
+                {
+                    "valid": True,
+                    "elapsed": 1.5,
+                    "aip_uuid": "test-uuid-2",
+                    "aip_s3_uri": "s3://bucket/test",
+                },
+                {
+                    "valid": True,
+                    "elapsed": 1.5,
+                    "aip_uuid": "test-uuid-3",
+                    "aip_s3_uri": "s3://bucket/test",
+                },
+                {
+                    "valid": True,
+                    "elapsed": 1.5,
+                    "aip_uuid": "test-uuid-4",
+                    "aip_s3_uri": "s3://bucket/test",
+                },
+            ]
 
             args = [
                 "--verbose",
@@ -173,7 +194,7 @@ class TestBulkValidateCommand:
                 in result.output
             )
             for uuid in expected_skipped_uuids:
-                assert f"AIP '{uuid}' already validated, skipping." in result.output
+                assert f"AIP UUID '{uuid}' already validated, skipping." in result.output
 
     def test_bulk_validate_incremental_writes_during_thread_failures(
         self,
@@ -209,7 +230,7 @@ class TestBulkValidateCommand:
                 output_csv,
             ]
 
-            runner.invoke(cli, args)
+            _result = runner.invoke(cli, args)
 
         # two rows written despite other threads failing
         output_df = pd.read_csv(output_csv)
