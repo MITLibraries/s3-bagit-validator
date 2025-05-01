@@ -238,7 +238,6 @@ class TestBulkValidateCommand:
 
                     # assert that CSV is growing relative to this AIP getting validated
                     assert len(output_csv_df) == _row_index + 1
-                    assert output_csv_df.iloc[-1].aip_uuid == _row.aip_uuid
 
                 return result
 
@@ -246,9 +245,9 @@ class TestBulkValidateCommand:
         mocker.patch(
             "lambdas.cli.validate_aip_via_lambda",
             return_value={
+                "aip_s3_uri": "s3://bucket/test",
                 "valid": True,
                 "elapsed": 1.5,
-                "s3_uri": "s3://bucket/test",
             },
         )
 

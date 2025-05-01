@@ -23,7 +23,9 @@ class ValidationResponse:
     """AIP validation response data.
 
     Attributes:
-        s3_uri: S3 URI of Bagit AIP validated
+        bucket: S3 Bucket where AIP is stored
+        aip_uuid: AIP UUID
+        aip_s3_uri: S3 URI of Bagit AIP validated
         valid: AIP has all files and all have expected checksums
         elapsed: time in seconds to perform validation
         manifest: dictionary of manifest file to its checksum
@@ -31,7 +33,9 @@ class ValidationResponse:
         error_details: dictionary of details related to validation error(s)
     """
 
-    s3_uri: str
+    bucket: str
+    aip_uuid: str
+    aip_s3_uri: str
     valid: bool
     elapsed: float
     manifest: dict[str, str] | None = None
@@ -63,9 +67,11 @@ class AIP:
 
     def __init__(
         self,
+        aip_uuid: str,
         s3_uri: str,
         s3_inventory_client: S3InventoryClient | None = None,
     ):
+        self.aip_uuid = aip_uuid
         self.s3_uri = s3_uri.removesuffix("/")
         self.s3_bucket, self.s3_key = S3Client.parse_s3_uri(self.s3_uri)
 
@@ -97,8 +103,17 @@ class AIP:
 
     @classmethod
     def from_s3_uri(cls, s3_uri: str) -> "AIP":
-        """Init AIP validator from AIP S3 URI."""
-        return cls(s3_uri=s3_uri)
+        """Init AIP validator from AIP S3 URI.
+
+        An instance of the S3InventoryClient is passed to reuse any cached query results.
+        """
+        s3_inventory_client = S3InventoryClient()
+        aip = s3_inventory_client.get_aip_from_s3_uri(s3_uri)
+        return cls(
+            aip_uuid=aip.aip_uuid,
+            s3_uri=aip.aip_s3_uri,
+            s3_inventory_client=s3_inventory_client,
+        )
 
     @classmethod
     def from_uuid(cls, aip_uuid: str) -> "AIP":
@@ -108,7 +123,11 @@ class AIP:
         """
         s3_inventory_client = S3InventoryClient()
         aip = s3_inventory_client.get_aip_from_uuid(aip_uuid)
-        return cls(s3_uri=aip.aip_s3_uri, s3_inventory_client=s3_inventory_client)
+        return cls(
+            aip_uuid=aip.aip_uuid,
+            s3_uri=aip.aip_s3_uri,
+            s3_inventory_client=s3_inventory_client,
+        )
 
     def validate(self, num_workers: int | None = None) -> ValidationResponse:
         """Validate that AIP manifest files and checksums match the AIP in S3.
@@ -143,7 +162,9 @@ class AIP:
             self._check_checksums()
 
             return ValidationResponse(
-                s3_uri=self.s3_uri,
+                bucket=self.s3_bucket,
+                aip_uuid=self.aip_uuid,
+                aip_s3_uri=self.s3_uri,
                 valid=True,
                 elapsed=round(perf_counter() - start_time, 2),
                 manifest=self.manifest_as_dict,
@@ -152,7 +173,9 @@ class AIP:
         except AIPValidationError as exception:
 
             return ValidationResponse(
-                s3_uri=self.s3_uri,
+                bucket=self.s3_bucket,
+                aip_uuid=self.aip_uuid,
+                aip_s3_uri=self.s3_uri,
                 valid=False,
                 elapsed=round(perf_counter() - start_time, 2),
                 manifest=self.manifest_as_dict,

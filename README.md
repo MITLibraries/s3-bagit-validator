@@ -14,6 +14,60 @@ AWS Lambda to validate a [Bagit](https://www.ietf.org/rfc/rfc8493.txt) bag store
 
 See [instructions for running via AWS SAM CLI here](tests/sam/README.md).
 
+## Lambda Request / Response Payloads
+
+This AWS Lambda is primarily invoked via a `POST` HTTP request.  The following outline the request and response payloads. 
+
+### Request Payload
+
+- `action`
+  - action for the lambda to perform
+  - allowed values: `[validate, ping]`
+- `aip_uuid`
+  - UUID of the AIP to validate
+- `challenge_secret`
+  - lightweight authorization string known by requester and Lambda
+- `verbose`
+  - boolean for verbose logs
+
+#### Example: `validate` by passing AIP UUID
+```json
+{
+    "action":"validate",
+    "aip_uuid":"29d47878-a513-475a-bd1d-ffabd1026e24",
+    "challenge_secret":"totally-local-s3-bagit-validating",
+    "verbose":false
+}
+```
+
+#### Example: `validate` by passing AIP S3 URI
+```json
+{
+    "action":"validate",
+    "aip_s3_uri":"s3://my-aips-bucket/29d4/7878/a513/475a/bd1d/ffab/d102/6e24/testdev_aipstore4-29d47878-a513-475a-bd1d-ffabd1026e24",
+    "challenge_secret":"totally-local-s3-bagit-validating",
+    "verbose":false
+}
+```
+
+### Response Payload
+
+#### Example: Valid AIP
+
+```json
+{
+    "bucket": "cdps-storage-dev-222053980223-aipstore4b",
+    "aip_uuid": "29d47878-a513-475a-bd1d-ffabd1026e24",
+    "aip_s3_uri": "s3://my-aips-bucket/29d4/7878/a513/475a/bd1d/ffab/d102/6e24/testdev_aipstore4-29d47878-a513-475a-bd1d-ffabd1026e24",
+    "valid": true,
+    "elapsed": 2.1,
+    "error": null,
+    "error_details": null
+}
+```
+- `bucket`, `aip_uuid`, and `aip_s3_uri` are always returned, regardless of UUID or S3 URI that was provided as input for validation
+- `error` and `error_details` are null when the AIP is valid, otherwise they contain all known validation error information
+
 ## Command Line Interface (CLI)
 
 This application includes a CLI that is designed to invoke the deployed AWS Lambda.  This supports running AIP validation from a command line context, while still utilizing all the wiring and permissions of the deployed lambda.
