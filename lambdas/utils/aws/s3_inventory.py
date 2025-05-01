@@ -242,6 +242,21 @@ class S3InventoryClient:
         self._aips_df = aips_df
         return aips_df
 
+    def get_aip_from_s3_uri(self, aip_s3_uri: str) -> pd.Series:
+        """Retrieve information about a specific AIP by its base S3 URI prefix."""
+        aips_df = self.get_aips_df()
+
+        if aip_s3_uri not in aips_df["aip_s3_uri"].to_numpy():
+            raise ValueError(f"AIP S3 URI '{aip_s3_uri}' not found in S3 Inventory data")
+        aip = aips_df.set_index("aip_s3_uri").loc[aip_s3_uri]
+        if isinstance(aip, pd.DataFrame):
+            raise TypeError(
+                f"Multiple entries found for AIP S3 URI '{aip_s3_uri}' "
+                "in S3 Inventory data"
+            )
+        aip.aip_s3_uri = aip_s3_uri
+        return aip
+
     def get_aip_from_uuid(self, aip_uuid: str) -> pd.Series:
         """Retrieve information about a specific AIP by its UUID."""
         aips_df = self.get_aips_df()
@@ -251,9 +266,9 @@ class S3InventoryClient:
         aip = aips_df.set_index("aip_uuid").loc[aip_uuid]
         if isinstance(aip, pd.DataFrame):
             raise TypeError(
-                f"Multiple entries found for AIP UUID '{aip_uuid}'in S3 Inventory data "
+                f"Multiple entries found for AIP UUID '{aip_uuid}'in S3 Inventory data"
             )
-
+        aip.aip_uuid = aip_uuid
         return aip
 
     def get_aip_inventory(

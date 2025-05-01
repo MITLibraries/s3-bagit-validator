@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
+from lambdas.aip import AIP
+
 
 @pytest.fixture(autouse=True)
 def _test_env(monkeypatch, request):
@@ -117,3 +119,8 @@ def mock_checksums():
             # Set return values to match expected manifest checksums
             mock_decode.side_effect = ["abcdef1234567890", "fedcba0987654321"]
             yield mock_get, mock_decode
+
+
+@pytest.fixture
+def aip():
+    return AIP("abc123", "s3://bucket/aip/")

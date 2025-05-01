@@ -348,8 +348,9 @@ def validate_aip_bulk_worker(
 
         with results_lock:
             results_df.loc[row_index] = {  # type: ignore[call-overload]
-                "aip_uuid": row.aip_uuid,
-                "aip_s3_uri": result.get("s3_uri"),
+                "bucket": result.get("bucket"),
+                "aip_uuid": result.get("aip_uuid"),
+                "aip_s3_uri": result.get("aip_s3_uri"),
                 "valid": bool(result.get("valid", False)),
                 "error": result.get("error"),
                 "error_details": (
