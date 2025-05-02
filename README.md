@@ -141,17 +141,16 @@ Options:
 ```text
 Usage: -c bulk-validate [OPTIONS]
 
-  Bulk validate AIPs stored in S3 via the AIP UUID or S3 URI.
+  Bulk validate AIPs stored in S3 via a CSV of AIP UUIDs or S3 URIs.
 
 Options:
   -i, --input-csv-filepath TEXT   Filepath of CSV with AIP UUIDs or S3 URIs to
                                   be validated.  [required]
   -o, --output-csv-filepath TEXT  Filepath of CSV for validation results.  If
-                                  file already exists, previous results will
-                                  be considered to skip re-validating AIPs for
-                                  this run.  This allows for lightweight
-                                  resume / retry functionality for a given
-                                  run.  [required]
+                                  a file already exists, the previous results
+                                  will be used to skip re-validating AIPs for
+                                  this run, allowing for lightweight resume /
+                                  retry functionality.  [required]
   -r, --retry-failed              Retry validation of AIPs if found in pre-
                                   existing results but had failed.
   -w, --max-workers INTEGER       Maximum number of concurrent validation
@@ -159,6 +158,29 @@ Options:
                                   concurrency for the deployed AWS Lambda
                                   function.
   --help                          Show this message and exit.
+```
+
+The `bulk-validate` command can be used to validate many AIPs at once, aggregating the results in a single output CSV file.
+
+If a `bulk-validate` run is performed where the output CSV file already exists, the previous results are used to skip AIPs that were previously validated.  If the `--retry-failed` flag is passed, then any AIPs that failed validation will also be retried.
+
+**NOTE**: this approach of "reusing" an output CSV from a previous run means that the original file will _technically_ be recreated, but any validated AIPs will have their results copied over before the new run starts.  In many ways, this makes a `bulk-validate` command idempotent if the input and output CSVs are the same for each run.  Should a job fail halfway through, it can safely be "resumed" by using the same input and output CSV filepaths without incurring the cost of re-validating any AIPs that were already validated.
+
+Example input CSV:
+```text
+aip_uuid,aip_s3_uri
+29d47878-a513-475a-bd1d-ffabd1026e24,
+4038b73e-a2e5-4a59-9f45-e31e95cc9977,
+,s3://my-aips-bucket/4b06/4dbd/1492/4ff7/a853/ab28/e9c2/fc74/Level04-preservation-sampleD-4b064dbd-1492-4ff7-a853-ab28e9c2fc74
+```
+- shows that a mix of `aip_uuid` and `aip_s3_uri` values is allowed (but is likely uncommon)
+
+Example output CSV:
+```text
+aip_uuid,aip_s3_uri,bucket,valid,error,error_details,elapsed
+4038b73e-a2e5-4a59-9f45-e31e95cc9977,s3://my-aips-bucket/4038/b73e/a2e5/4a59/9f45/e31e/95cc/9977/2025_029acc-4038b73e-a2e5-4a59-9f45-e31e95cc9977,cdps-storage-dev-222053980223-aipstore4b,True,,,4.13
+4b064dbd-1492-4ff7-a853-ab28e9c2fc74,s3://my-aips-bucket/4b06/4dbd/1492/4ff7/a853/ab28/e9c2/fc74/Level04-preservation-sampleD-4b064dbd-1492-4ff7-a853-ab28e9c2fc74,cdps-storage-dev-222053980223-aipstore4b,True,,,4.15
+29d47878-a513-475a-bd1d-ffabd1026e24,s3://my-aips-bucket/29d4/7878/a513/475a/bd1d/ffab/d102/6e24/testdev_aipstore4-29d47878-a513-475a-bd1d-ffabd1026e24,cdps-storage-dev-222053980223-aipstore4b,True,,,4.1
 ```
 
 Examples:
