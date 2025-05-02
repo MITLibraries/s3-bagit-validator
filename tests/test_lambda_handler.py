@@ -140,7 +140,9 @@ class TestLambdaHandler:
             "challenge_secret": "i-am-secret",
         }
         mock_result = ValidationResponse(
-            s3_uri="s3://bucket/aip",
+            bucket="bucket",
+            aip_uuid="abc123",
+            aip_s3_uri="s3://bucket/aip",
             valid=True,
             elapsed=1.5,
             manifest={"data/file1.txt": "abc123"},
@@ -155,7 +157,7 @@ class TestLambdaHandler:
         assert response["statusDescription"] == "200 OK"
         body = json.loads(response["body"])
         assert body["valid"] is True
-        assert body["s3_uri"] == "s3://bucket/aip"
+        assert body["aip_s3_uri"] == "s3://bucket/aip"
 
     def test_lambda_handler_success_with_uuid(self):
         event = {
@@ -163,7 +165,9 @@ class TestLambdaHandler:
             "challenge_secret": "i-am-secret",
         }
         mock_result = ValidationResponse(
-            s3_uri="s3://bucket/aip",
+            bucket="bucket",
+            aip_uuid="abc123",
+            aip_s3_uri="s3://bucket/aip",
             valid=True,
             elapsed=1.5,
             manifest={"data/file1.txt": "abc123"},
@@ -177,7 +181,7 @@ class TestLambdaHandler:
         assert response["statusCode"] == HTTPStatus.OK
         body = json.loads(response["body"])
         assert body["valid"] is True
-        assert body["s3_uri"] == "s3://bucket/aip"
+        assert body["aip_s3_uri"] == "s3://bucket/aip"
 
     def test_lambda_handler_ping_action(self):
         event = {

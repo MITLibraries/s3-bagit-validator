@@ -170,6 +170,6 @@ def validate(payload: InputPayload) -> dict:
         )
 
     result = aip.validate(num_workers=payload.num_workers)
-    logger.info(f"AIP '{result.s3_uri}' is valid: {result.valid}")
+    logger.info(f"AIP '{result.aip_s3_uri}' is valid: {result.valid}")
 
     return generate_result_response(result.to_dict(exclude=["manifest"]))

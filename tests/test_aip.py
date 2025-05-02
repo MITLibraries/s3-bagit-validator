@@ -1,5 +1,6 @@
 # ruff: noqa: PLR2004, SLF001, PD901, SIM117, ARG002, E501
 
+import json
 import os
 from unittest.mock import patch
 
@@ -14,7 +15,9 @@ from lambdas.exceptions import AIPValidationError
 class TestValidationResponse:
     def test_to_dict(self):
         response = ValidationResponse(
-            s3_uri="s3://bucket/aip",
+            bucket="bucket",
+            aip_uuid="abc123",
+            aip_s3_uri="s3://bucket/aip",
             valid=True,
             elapsed=1.5,
             manifest={"data/file1.txt": "abc123"},
@@ -23,7 +26,7 @@ class TestValidationResponse:
         result = response.to_dict()
 
         assert isinstance(result, dict)
-        assert result["s3_uri"] == "s3://bucket/aip"
+        assert result["aip_s3_uri"] == "s3://bucket/aip"
         assert result["valid"] is True
         assert result["elapsed"] == 1.5
         assert result["manifest"] == {"data/file1.txt": "abc123"}
@@ -31,7 +34,12 @@ class TestValidationResponse:
 
     def test_to_dict_with_error(self):
         response = ValidationResponse(
-            s3_uri="s3://bucket/aip", valid=False, elapsed=1.5, error="Validation failed"
+            bucket="bucket",
+            aip_uuid="abc123",
+            aip_s3_uri="s3://bucket/aip",
+            valid=False,
+            elapsed=1.5,
+            error="Validation failed",
         )
         result = response.to_dict()
         assert result["valid"] is False
@@ -39,17 +47,29 @@ class TestValidationResponse:
         assert result["manifest"] is None
 
     def test_to_json(self):
-        response = ValidationResponse(s3_uri="s3://bucket/aip", valid=True, elapsed=1.5)
+        response = ValidationResponse(
+            bucket="bucket",
+            aip_uuid="abc123",
+            aip_s3_uri="s3://bucket/aip",
+            valid=True,
+            elapsed=1.5,
+        )
         json_result = response.to_json(exclude=["manifest", "error", "error_details"])
         assert isinstance(json_result, str)
-        assert (
-            json_result == '{"s3_uri": "s3://bucket/aip", "valid": true, "elapsed": 1.5}'
+        assert json_result == json.dumps(
+            {
+                "bucket": "bucket",
+                "aip_uuid": "abc123",
+                "aip_s3_uri": "s3://bucket/aip",
+                "valid": True,
+                "elapsed": 1.5,
+            }
         )
 
 
 class TestAIP:
-    def test_init(self):
-        aip = AIP("s3://bucket/aip/")
+    def test_init(self, aip):
+        assert aip.aip_uuid == "abc123"
         assert aip.s3_uri == "s3://bucket/aip"
         assert aip.s3_bucket == "bucket"
         assert aip.s3_key == "aip"
@@ -61,6 +81,7 @@ class TestAIP:
         ) as mock_get_aip:
             mock_aip_series = pd.Series(
                 {
+                    "aip_uuid": "valid-uuid-12345",
                     "aip_s3_uri": "s3://bucket/path/to/aip",
                     "aip_s3_key": "path/to/aip",
                     "bucket": "bucket",
@@ -98,8 +119,7 @@ class TestAIP:
             ):
                 AIP.from_uuid("duplicate-uuid")
 
-    def test_data_files_property(self):
-        aip = AIP("s3://bucket/aip")
+    def test_data_files_property(self, aip):
         aip.files = [
             "bagit.txt",
             "manifest-sha256.txt",
@@ -108,8 +128,7 @@ class TestAIP:
         ]
         assert aip.data_files == ["data/file1.txt", "data/file2.txt"]
 
-    def test_manifest_as_dict_property(self):
-        aip = AIP("s3://bucket/aip")
+    def test_manifest_as_dict_property(self, aip):
         aip.manifest_df = pd.DataFrame(
             [
                 {"filepath": "data/file1.txt", "checksum": "abc123"},
@@ -128,21 +147,19 @@ class TestAIP:
         mock_aip_files,
         mock_inventory_data,
         mock_checksums,
+        aip,
     ):
-
-        aip = AIP("s3://bucket/aip")
         response = aip.validate()
 
         assert response.valid is True
-        assert response.s3_uri == "s3://bucket/aip"
+        assert response.aip_s3_uri == "s3://bucket/aip"
         assert response.error is None
 
-    def test_validate_folder_not_exists(self):
+    def test_validate_folder_not_exists(self, aip):
 
         with patch("lambdas.utils.aws.s3.S3Client.folder_exists") as mock_folder_exists:
             mock_folder_exists.return_value = False
 
-            aip = AIP("s3://bucket/aip")
             response = aip.validate()
 
             assert response.valid is False
@@ -153,9 +170,8 @@ class TestAIP:
             }
 
     def test_check_aip_files_match_manifest_missing_files(
-        self, mock_aip_folder, mock_manifest_data
+        self, mock_aip_folder, mock_manifest_data, aip
     ):
-        aip = AIP("s3://bucket/aip")
         aip.manifest_df = pd.DataFrame(
             [
                 {"filepath": "data/file1.txt", "checksum": "abc"},
@@ -179,9 +195,8 @@ class TestAIP:
         assert "Files found in manifest but missing from AIP" in str(exc.value)
 
     def test_check_aip_files_match_manifest_extra_files(
-        self, mock_aip_folder, mock_manifest_data
+        self, mock_aip_folder, mock_manifest_data, aip
     ):
-        aip = AIP("s3://bucket/aip")
         aip.manifest_df = pd.DataFrame(
             [{"filepath": "data/file1.txt", "checksum": "abc"}]
         )
@@ -197,8 +212,7 @@ class TestAIP:
 
         assert "Files found in AIP but missing from manifest" in str(exc.value)
 
-    def test_check_checksums_mismatch(self):
-        aip = AIP("s3://bucket/aip")
+    def test_check_checksums_mismatch(self, aip):
         aip.manifest_df = pd.DataFrame(
             [
                 {"filepath": "data/file1.txt", "checksum": "abc123"},
@@ -216,9 +230,7 @@ class TestAIP:
         assert "Mismatched checksums for files" in str(exc.value)
         assert "data/file2.txt" in exc.value.error_details["mismatched_files"]
 
-    def test_check_checksums_mismatch_truncation(self):
-        aip = AIP("s3://bucket/aip")
-
+    def test_check_checksums_mismatch_truncation(self, aip):
         # create mismatched files exceeding the file limit
         file_count = 150
         manifest_data = []
@@ -246,10 +258,8 @@ class TestAIP:
             == "too many individual files to list"
         )
 
-    def test_get_aip_file_checksums(self):
+    def test_get_aip_file_checksums(self, aip):
         """Test that _get_aip_file_checksums correctly processes files in parallel."""
-        aip = AIP("s3://bucket/aip")
-
         aip.manifest_df = pd.DataFrame(
             [
                 {"filepath": "data/file1.txt", "checksum": "abc123"},

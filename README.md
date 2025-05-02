@@ -14,6 +14,60 @@ AWS Lambda to validate a [Bagit](https://www.ietf.org/rfc/rfc8493.txt) bag store
 
 See [instructions for running via AWS SAM CLI here](tests/sam/README.md).
 
+## Lambda Request / Response Payloads
+
+This AWS Lambda is primarily invoked via a `POST` HTTP request.  The following outline the request and response payloads. 
+
+### Request Payload
+
+- `action`
+  - action for the lambda to perform
+  - allowed values: `[validate, ping]`
+- `aip_uuid`
+  - UUID of the AIP to validate
+- `challenge_secret`
+  - lightweight authorization string known by requester and Lambda
+- `verbose`
+  - boolean for verbose logs
+
+#### Example: `validate` by passing AIP UUID
+```json
+{
+    "action":"validate",
+    "aip_uuid":"29d47878-a513-475a-bd1d-ffabd1026e24",
+    "challenge_secret":"totally-local-s3-bagit-validating",
+    "verbose":false
+}
+```
+
+#### Example: `validate` by passing AIP S3 URI
+```json
+{
+    "action":"validate",
+    "aip_s3_uri":"s3://my-aips-bucket/29d4/7878/a513/475a/bd1d/ffab/d102/6e24/testdev_aipstore4-29d47878-a513-475a-bd1d-ffabd1026e24",
+    "challenge_secret":"totally-local-s3-bagit-validating",
+    "verbose":false
+}
+```
+
+### Response Payload
+
+#### Example: Valid AIP
+
+```json
+{
+    "bucket": "cdps-storage-dev-222053980223-aipstore4b",
+    "aip_uuid": "29d47878-a513-475a-bd1d-ffabd1026e24",
+    "aip_s3_uri": "s3://my-aips-bucket/29d4/7878/a513/475a/bd1d/ffab/d102/6e24/testdev_aipstore4-29d47878-a513-475a-bd1d-ffabd1026e24",
+    "valid": true,
+    "elapsed": 2.1,
+    "error": null,
+    "error_details": null
+}
+```
+- `bucket`, `aip_uuid`, and `aip_s3_uri` are always returned, regardless of UUID or S3 URI that was provided as input for validation
+- `error` and `error_details` are null when the AIP is valid, otherwise they contain all known validation error information
+
 ## Command Line Interface (CLI)
 
 This application includes a CLI that is designed to invoke the deployed AWS Lambda.  This supports running AIP validation from a command line context, while still utilizing all the wiring and permissions of the deployed lambda.
@@ -87,19 +141,46 @@ Options:
 ```text
 Usage: -c bulk-validate [OPTIONS]
 
-  Bulk validate AIPs stored in S3 via the AIP UUID or S3 URI.
+  Bulk validate AIPs stored in S3 via a CSV of AIP UUIDs or S3 URIs.
 
 Options:
   -i, --input-csv-filepath TEXT   Filepath of CSV with AIP UUIDs or S3 URIs to
                                   be validated.  [required]
-  -o, --output-csv-filepath TEXT  Filepath of CSV for validation results.
-  -d, --details                   Return full AIP validation details as JSON
-                                  to stdout instead of 'OK'.
+  -o, --output-csv-filepath TEXT  Filepath of CSV for validation results.  If
+                                  a file already exists, the previous results
+                                  will be used to skip re-validating AIPs for
+                                  this run, allowing for lightweight resume /
+                                  retry functionality.  [required]
+  -r, --retry-failed              Retry validation of AIPs if found in pre-
+                                  existing results but had failed.
   -w, --max-workers INTEGER       Maximum number of concurrent validation
                                   workers.  This should not exceed the maximum
                                   concurrency for the deployed AWS Lambda
                                   function.
   --help                          Show this message and exit.
+```
+
+The `bulk-validate` command can be used to validate many AIPs at once, aggregating the results in a single output CSV file.
+
+If a `bulk-validate` run is performed where the output CSV file already exists, the previous results are used to skip AIPs that were previously validated.  If the `--retry-failed` flag is passed, then any AIPs that failed validation will also be retried.
+
+**NOTE**: this approach of "reusing" an output CSV from a previous run means that the original file will _technically_ be recreated, but any validated AIPs will have their results copied over before the new run starts.  In many ways, this makes a `bulk-validate` command idempotent if the input and output CSVs are the same for each run.  Should a job fail halfway through, it can safely be "resumed" by using the same input and output CSV filepaths without incurring the cost of re-validating any AIPs that were already validated.
+
+Example input CSV:
+```text
+aip_uuid,aip_s3_uri
+29d47878-a513-475a-bd1d-ffabd1026e24,
+4038b73e-a2e5-4a59-9f45-e31e95cc9977,
+,s3://my-aips-bucket/4b06/4dbd/1492/4ff7/a853/ab28/e9c2/fc74/Level04-preservation-sampleD-4b064dbd-1492-4ff7-a853-ab28e9c2fc74
+```
+- shows that a mix of `aip_uuid` and `aip_s3_uri` values is allowed (but is likely uncommon)
+
+Example output CSV:
+```text
+aip_uuid,aip_s3_uri,bucket,valid,error,error_details,elapsed
+4038b73e-a2e5-4a59-9f45-e31e95cc9977,s3://my-aips-bucket/4038/b73e/a2e5/4a59/9f45/e31e/95cc/9977/2025_029acc-4038b73e-a2e5-4a59-9f45-e31e95cc9977,cdps-storage-dev-222053980223-aipstore4b,True,,,4.13
+4b064dbd-1492-4ff7-a853-ab28e9c2fc74,s3://my-aips-bucket/4b06/4dbd/1492/4ff7/a853/ab28/e9c2/fc74/Level04-preservation-sampleD-4b064dbd-1492-4ff7-a853-ab28e9c2fc74,cdps-storage-dev-222053980223-aipstore4b,True,,,4.15
+29d47878-a513-475a-bd1d-ffabd1026e24,s3://my-aips-bucket/29d4/7878/a513/475a/bd1d/ffab/d102/6e24/testdev_aipstore4-29d47878-a513-475a-bd1d-ffabd1026e24,cdps-storage-dev-222053980223-aipstore4b,True,,,4.1
 ```
 
 Examples:
@@ -112,7 +193,10 @@ pipenv run cli --verbose validate --aip-uuid="c73d10a7-7cd2-406f-95b6-b12e8f2da6
 pipenv run cli --verbose validate --s3-uri="s3://my-bucket/c73d/10a7/7cd2/406f/95bf/b12e/8f2d/a646/my-amazing-aip-c73d10a7-7cd2-406f-95b6-b12e8f2da646"
 
 # bulk validate against a list of AIPs in a CSV
-pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.csv"
+pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.csv" --output-csv-filepath="output/bulk-uuids-output.csv"
+
+# bulk validate against pre-existing file and retry failures
+pipenv run cli --verbose bulk-validate -i output/all-aips-2025-05-02.csv -o output/all-aips-2025-05-02.csv --retry-failed
 ```
 
 
