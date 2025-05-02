@@ -153,9 +153,9 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
     "-o",
     required=True,
     help=(
-        "Filepath of CSV for validation results.  If file already exists, previous "
-        "results will be considered to skip re-validating AIPs for this run.  This "
-        "allows for lightweight resume / retry functionality for a given run."
+        "Filepath of CSV for validation results.  If a file already exists, the previous "
+        "results will be used to skip re-validating AIPs for this run, allowing for "
+        "lightweight resume / retry functionality."
     ),
 )
 @click.option(
@@ -185,7 +185,7 @@ def bulk_validate(
     retry_failed: bool,
     max_workers: int,
 ) -> None:
-    """Bulk validate AIPs stored in S3 via the AIP UUID or S3 URI."""
+    """Bulk validate AIPs stored in S3 via a CSV of AIP UUIDs or S3 URIs."""
     try:
         input_df = pd.read_csv(input_csv_filepath).replace({np.nan: None})
     except FileNotFoundError as exc:
