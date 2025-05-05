@@ -18,20 +18,20 @@
     "default": {
         "boto3": {
             "hashes": [
-                "sha256:8b6544eca17e31d1bfd538e5d152b96a68d6c92950352a0cd9679f89d217d53a",
-                "sha256:96898facb164b47859d40a4271007824a0a791c3811a7079ce52459d753d4474"
+                "sha256:6bbc75bb51be9c5a33d07a4adf13d133c60f77b7c47bef1c46fda90b1297a867",
+                "sha256:f3a4d79f499f567d327d2d8846d02ad18244d2927f88858a42a2438f52d9a0ef"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.9'",
-            "version": "==1.38.0"
+            "version": "==1.38.8"
         },
         "botocore": {
             "hashes": [
-                "sha256:ac8997291bcfd28d329a779ceda429fbe9f8950ba051429a37ba93cbda025e94",
-                "sha256:f9d58404796a44746d54c4a9318a8970fb4dbcbdc45aa0e75bf528af4213b6b5"
+                "sha256:68d739300cc94232373517b27c5570de6ae6d809a2db644f30219f5c8e0371ce",
+                "sha256:f6ae08a56fe94e18d2aa223611a3b5e94123315d0cb3cb85764b029b2326c710"
             ],
             "markers": "python_version >= '3.9'",
-            "version": "==1.38.0"
+            "version": "==1.38.8"
         },
         "certifi": {
             "hashes": [
@@ -337,7 +337,7 @@
                 "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3",
                 "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
             "version": "==2.9.0.post0"
         },
         "pytz": {
@@ -378,7 +378,7 @@
                 "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
                 "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
             "version": "==1.17.0"
         },
         "tzdata": {
