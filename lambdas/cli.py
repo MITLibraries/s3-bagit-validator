@@ -274,14 +274,36 @@ def bulk_validate(
     "-o",
     required=True,
     help=(
-        "Filepath of CSV for validation results.  If file already exists, previous "
-        "results will be considered to skip re-validating AIPs for this run.  This "
-        "allows for lightweight resume / retry functionality for a given run."
+        "Filepath of CSV for validation results.  If a file already exists, the previous "
+        "results will be used to skip re-validating AIPs for this run, allowing for "
+        "lightweight resume / retry functionality."
+    ),
+)
+@click.option(
+    "--retry-failed",
+    "-r",
+    required=False,
+    is_flag=True,
+    help="Retry validation of AIPs if found in pre-existing results but had failed.",
+)
+@click.option(
+    "--max-workers",
+    "-w",
+    required=False,
+    type=int,
+    default=25,
+    envvar="LAMBDA_MAX_CONCURRENCY",
+    help=(
+        "Maximum number of concurrent validation workers.  This should not exceed the "
+        "maximum concurrency for the deployed AWS Lambda function."
     ),
 )
 def validate_all(
     ctx: click.Context,
     output_csv_filepath: str,
+    *,
+    retry_failed: bool,
+    max_workers: int,
 ) -> None:
     """Validate all AIPs in the current AWS environment.
 
@@ -295,11 +317,12 @@ def validate_all(
     s3_uris = input_df["aip_s3_uri"]
     with tempfile.NamedTemporaryFile(mode="a+", delete=False, suffix=".csv") as temp_file:
         s3_uris.to_csv(temp_file, index=False)
-        temp_file.seek(0)
         ctx.invoke(
             bulk_validate,
             input_csv_filepath=temp_file.name,
             output_csv_filepath=output_csv_filepath,
+            retry_failed=retry_failed,
+            max_workers=max_workers,
         )
 
 
