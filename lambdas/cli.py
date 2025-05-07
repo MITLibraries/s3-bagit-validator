@@ -4,6 +4,7 @@ import concurrent.futures
 import json
 import logging
 import os.path
+import tempfile
 import time
 from http import HTTPStatus
 from threading import Lock
@@ -15,6 +16,7 @@ import pandas as pd
 import requests
 
 from lambdas.config import Config, configure_logger
+from lambdas.utils.aws.s3_inventory import S3InventoryClient
 
 logger = logging.getLogger(__name__)
 CONFIG = Config()
@@ -198,6 +200,7 @@ def bulk_validate(
         click.echo(error_msg, err=True)
         ctx.exit(1)
 
+    logger.info(f"Validating {len(input_df)} AIPs")
     # establish results dataframe in memory and output CSV file
     if not os.path.exists(output_csv_filepath):
         results_df = input_df.copy()
@@ -262,6 +265,42 @@ def bulk_validate(
         f"Validation complete: {valid_count}/{total_count} AIPs valid.  "
         f"Results saved to '{output_csv_filepath}'"
     )
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--output-csv-filepath",
+    "-o",
+    required=True,
+    help=(
+        "Filepath of CSV for validation results.  If file already exists, previous "
+        "results will be considered to skip re-validating AIPs for this run.  This "
+        "allows for lightweight resume / retry functionality for a given run."
+    ),
+)
+def validate_all(
+    ctx: click.Context,
+    output_csv_filepath: str,
+) -> None:
+    """Validate all AIPs in the current AWS environment.
+
+    This validation is based on the specified S3 Inventory data buckets for the
+    environment. If an AIP is not referenced in the S3 inventory, it will not be
+    validated.
+    """
+    s3i_client = S3InventoryClient()
+    input_df = s3i_client.get_aips_df()
+    logger.debug(f"{len(input_df)} AIPs retrieved from S3 Inventory")
+    s3_uris = input_df["aip_s3_uri"]
+    with tempfile.NamedTemporaryFile(mode="a+", delete=False, suffix=".csv") as temp_file:
+        s3_uris.to_csv(temp_file, index=False)
+        temp_file.seek(0)
+        ctx.invoke(
+            bulk_validate,
+            input_csv_filepath=temp_file.name,
+            output_csv_filepath=output_csv_filepath,
+        )
 
 
 def validate_aip_via_lambda(
