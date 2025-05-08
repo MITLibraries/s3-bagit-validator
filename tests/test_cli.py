@@ -189,6 +189,7 @@ class TestBulkValidateCommand:
 
             result = runner.invoke(cli, args)
 
+            assert "Validating 3 AIPs" in result.output
             assert (
                 f"Found {expected_skipped_count} already validated AIPs, will skip these."
                 in result.output
@@ -230,7 +231,8 @@ class TestBulkValidateCommand:
                 output_csv,
             ]
 
-            _result = runner.invoke(cli, args)
+            result = runner.invoke(cli, args)
+            assert "Validating 4 AIPs" in result.output
 
         # two rows written despite other threads failing
         output_df = pd.read_csv(output_csv)
@@ -282,7 +284,40 @@ class TestBulkValidateCommand:
             output_csv,
         ]
 
-        _result = runner.invoke(cli, args)
+        result = runner.invoke(cli, args)
+        assert "Validating 4 AIPs" in result.output
+
+
+class TestValidateAll:
+    def test_validate_all_success(self, caplog, tmp_path):
+        output_csv = str(tmp_path / "output.csv")
+        s3_uris = [
+            "s3://1",
+            "s3://2",
+            "s3://3",
+            "s3://4",
+            "s3://5",
+            "s3://6",
+            "s3://7",
+            "s3://8",
+            "s3://9",
+            "s3://10",
+        ]
+        s3_uris_df = pd.DataFrame({"aip_s3_uri": s3_uris})
+        with patch(
+            "lambdas.utils.aws.s3_inventory.S3InventoryClient.get_aips_df",
+            return_value=s3_uris_df,
+        ) as _mock_inventory:
+            caplog.set_level("DEBUG")
+            runner = CliRunner()
+            args = [
+                "--verbose",
+                "validate-all",
+                "-o",
+                output_csv,
+            ]
+            result = runner.invoke(cli, args)
+            assert "10 AIPs retrieved from S3 Inventory" in result.output
 
 
 class TestValidateAipViaLambda:

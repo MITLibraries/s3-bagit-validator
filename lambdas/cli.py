@@ -4,6 +4,7 @@ import concurrent.futures
 import json
 import logging
 import os.path
+import tempfile
 import time
 from http import HTTPStatus
 from threading import Lock
@@ -15,6 +16,7 @@ import pandas as pd
 import requests
 
 from lambdas.config import Config, configure_logger
+from lambdas.utils.aws.s3_inventory import S3InventoryClient
 
 logger = logging.getLogger(__name__)
 CONFIG = Config()
@@ -198,6 +200,7 @@ def bulk_validate(
         click.echo(error_msg, err=True)
         ctx.exit(1)
 
+    logger.info(f"Validating {len(input_df)} AIPs")
     # establish results dataframe in memory and output CSV file
     if not os.path.exists(output_csv_filepath):
         results_df = input_df.copy()
@@ -262,6 +265,65 @@ def bulk_validate(
         f"Validation complete: {valid_count}/{total_count} AIPs valid.  "
         f"Results saved to '{output_csv_filepath}'"
     )
+
+
+@cli.command()
+@click.pass_context
+@click.option(
+    "--output-csv-filepath",
+    "-o",
+    required=True,
+    help=(
+        "Filepath of CSV for validation results.  If a file already exists, the previous "
+        "results will be used to skip re-validating AIPs for this run, allowing for "
+        "lightweight resume / retry functionality."
+    ),
+)
+@click.option(
+    "--retry-failed",
+    "-r",
+    required=False,
+    is_flag=True,
+    help="Retry validation of AIPs if found in pre-existing results but had failed.",
+)
+@click.option(
+    "--max-workers",
+    "-w",
+    required=False,
+    type=int,
+    default=25,
+    envvar="LAMBDA_MAX_CONCURRENCY",
+    help=(
+        "Maximum number of concurrent validation workers.  This should not exceed the "
+        "maximum concurrency for the deployed AWS Lambda function."
+    ),
+)
+def validate_all(
+    ctx: click.Context,
+    output_csv_filepath: str,
+    *,
+    retry_failed: bool,
+    max_workers: int,
+) -> None:
+    """Validate all AIPs in the current AWS environment.
+
+    This validation is based on the specified S3 Inventory data buckets for the
+    environment. If an AIP is not referenced in the S3 inventory, it will not be
+    validated.
+    """
+    s3i_client = S3InventoryClient()
+    input_df = s3i_client.get_aips_df()
+    logger.debug(f"{len(input_df)} AIPs retrieved from S3 Inventory")
+    s3_uris = input_df["aip_s3_uri"]
+    with tempfile.NamedTemporaryFile(mode="a+", delete=False, suffix=".csv") as temp_file:
+        s3_uris.to_csv(temp_file, index=False)
+        ctx.invoke(
+            bulk_validate,
+            input_csv_filepath=temp_file.name,
+            output_csv_filepath=output_csv_filepath,
+            retry_failed=retry_failed,
+            max_workers=max_workers,
+        )
 
 
 def validate_aip_via_lambda(
