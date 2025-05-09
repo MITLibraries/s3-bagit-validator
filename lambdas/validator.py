@@ -57,6 +57,8 @@ def lambda_handler(event: dict, _context: dict) -> dict:
     try:
         if payload.action == "ping":
             return ping()
+        if payload.action == "inventory":
+            return inventory()
         if payload.action == "validate":
             return validate(payload)
         return generate_error_response(
@@ -126,7 +128,18 @@ def generate_error_response(
     }
 
 
-def generate_result_response(response: dict) -> dict:
+def generate_result_csv_response(response: str) -> dict:
+    """Produce a response object suitable for CSV responses."""
+    return {
+        "statusCode": HTTPStatus.OK,
+        "statusDescription": "200 OK",
+        "headers": {"Content-Type": "text/csv"},
+        "isBase64Encoded": False,
+        "body": response,
+    }
+
+
+def generate_result_http_response(response: dict) -> dict:
     """Produce a response object suitable for HTTP responses.
 
     See more: https://docs.aws.amazon.com/apigateway/latest/developerguide/
@@ -149,12 +162,20 @@ def ping() -> dict:
         """select count(*) as inventory_count from inventory;"""
     )
 
-    return generate_result_response(
+    return generate_result_http_response(
         {
             "response": "pong",
             "inventory_query_test": count_df.to_dict(orient="records"),
         }
     )
+
+
+def inventory() -> dict:
+    """Validate a single AIP."""
+    s3i_client = S3InventoryClient()
+    input_df = s3i_client.get_aips_df()
+    csv_string = input_df.to_csv(index=False)
+    return generate_result_csv_response(csv_string)
 
 
 def validate(payload: InputPayload) -> dict:
@@ -172,4 +193,4 @@ def validate(payload: InputPayload) -> dict:
     result = aip.validate(num_workers=payload.num_workers)
     logger.info(f"AIP '{result.aip_s3_uri}' is valid: {result.valid}")
 
-    return generate_result_response(result.to_dict(exclude=["manifest"]))
+    return generate_result_http_response(result.to_dict(exclude=["manifest"]))

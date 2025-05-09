@@ -282,7 +282,29 @@ class TestBulkValidateCommand:
             output_csv,
         ]
 
-        _result = runner.invoke(cli, args)
+        result = runner.invoke(cli, args)
+        assert "Validating 4 AIPs" in result.output
+
+
+class TestInventory:
+    def test_inventory_success(self, tmp_path):
+        output_csv_filepath = str(tmp_path / "output.csv")
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.content = b"123\nabc\n"
+            mock_post.return_value = mock_response
+            runner = CliRunner()
+            args = [
+                "--verbose",
+                "inventory",
+                "-o",
+                output_csv_filepath,
+            ]
+            result = runner.invoke(cli, args)
+            with open(output_csv_filepath) as output_csv:
+                assert output_csv.read() == "123\nabc\n"
+            assert "AIP inventory CSV created at " in result.output
 
 
 class TestValidateAipViaLambda:

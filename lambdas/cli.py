@@ -264,6 +264,34 @@ def bulk_validate(
     )
 
 
+@cli.command()
+@click.option(
+    "--output-csv-filepath",
+    "-o",
+    required=True,
+    help=(
+        "Filepath of CSV for validation results.  If a file already exists, the previous "
+        "results will be used to skip re-validating AIPs for this run, allowing for "
+        "lightweight resume / retry functionality."
+    ),
+)
+def inventory(
+    output_csv_filepath: str,
+) -> None:
+    """Generate CSV of S3 Inventory data for all AIPs in current environment."""
+    response = requests.post(
+        CONFIG.lambda_endpoint_url,
+        json={
+            "action": "inventory",
+            "challenge_secret": CONFIG.CHALLENGE_SECRET,
+        },
+        timeout=900,  # 15 min timeout (AWS Lambda maximum) for large AIPs
+    )
+    with open(output_csv_filepath, "wb") as csv_file:
+        csv_file.write(response.content)
+    logger.debug(f"AIP inventory CSV created at {output_csv_filepath}")
+
+
 def validate_aip_via_lambda(
     aip_uuid: str | None = None,
     aip_s3_uri: str | None = None,
