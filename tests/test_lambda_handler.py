@@ -123,9 +123,18 @@ class TestResponseGeneration:
             "error_details": None,
         }
 
-    def test_generate_result_response(self):
+    def test_generate_result_csv_response(self):
+        test_data = "123,456,789\nabc,def,ghi"
+        response = validator.generate_result_csv_response(test_data)
+        assert response["statusCode"] == HTTPStatus.OK
+        assert response["statusDescription"] == "200 OK"
+        assert response["headers"] == {"Content-Type": "text/csv"}
+        assert response["isBase64Encoded"] is False
+        assert response["body"] == test_data
+
+    def test_generate_result_http_response(self):
         test_data = {"key": "value", "nested": {"data": 123}}
-        response = validator.generate_result_response(test_data)
+        response = validator.generate_result_http_response(test_data)
         assert response["statusCode"] == HTTPStatus.OK
         assert response["statusDescription"] == "200 OK"
         assert response["headers"] == {"Content-Type": "application/json"}
@@ -182,6 +191,19 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["valid"] is True
         assert body["aip_s3_uri"] == "s3://bucket/aip"
+
+    def test_lambda_handler_inventory_action(self):
+        event = {
+            "action": "inventory",
+            "challenge_secret": "i-am-secret",
+        }
+        with patch("lambdas.validator.S3InventoryClient") as mock_s3_inventory_client:
+            mock_instance = mock_s3_inventory_client.return_value
+            mock_instance.get_aips_df.return_value = pd.DataFrame([{"123": "abc"}])
+            response = validator.lambda_handler(event, {})
+
+        assert response["statusCode"] == HTTPStatus.OK
+        assert response["body"] == "123\nabc\n"
 
     def test_lambda_handler_ping_action(self):
         event = {
