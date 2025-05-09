@@ -199,6 +199,25 @@ pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.c
 pipenv run cli --verbose bulk-validate -i output/all-aips-2025-05-02.csv -o output/all-aips-2025-05-02.csv --retry-failed
 ```
 
+### pipenv run inventory
+```text
+Usage: -c inventory [OPTIONS]
+
+  Generate CSV of S3 Inventory data for all AIPs in current environment.
+
+Options:
+  -o, --output-csv-filepath TEXT  Filepath of CSV for validation results.  If
+                                  a file already exists, the previous results
+                                  will be used to skip re-validating AIPs for
+                                  this run, allowing for lightweight resume /
+                                  retry functionality.  [required]
+  --help                          Show this message and exit.
+```
+
+Example:
+```
+pipenv run cli inventory --output-csv-filepath output/inventory.csv
+```
 
 ## Environment Variables
 
