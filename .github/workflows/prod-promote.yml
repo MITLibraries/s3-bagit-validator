@@ -2,18 +2,34 @@
 ### s3-bagit-validator-prod repository. If this is a Lambda repo,          ###
 ### uncomment the FUNCTION line at the end of the document.                ###
 name: Prod Container Promote
+
+# checkov:skip=CKV2_GHA_1:The shared workflow contains the permissions constraints
+# NOTE: The above checkov skip command doesn't actually work and this workflow
+#       will always show a checkov warning.
+
 on:
   workflow_dispatch:
   release:
     types: [published]
 
 jobs:
-  deploy:
+  deploy-us-east-1:
     name: Prod Container Promote
     uses: mitlibraries/.github/.github/workflows/ecr-shared-promote-prod.yml@main
     secrets: inherit
     with:
       AWS_REGION: "us-east-1"
+      GHA_ROLE_STAGE: s3-bagit-validator-gha-stage
+      GHA_ROLE_PROD: s3-bagit-validator-gha-prod
+      ECR_STAGE: "s3-bagit-validator-stage"
+      ECR_PROD: "s3-bagit-validator-prod"
+      FUNCTION: "s3-bagit-validator-prod"
+  deploy-us-west-2:
+    name: Prod Container Promote us-west-2
+    uses: mitlibraries/.github/.github/workflows/ecr-shared-promote-prod.yml@main
+    secrets: inherit
+    with:
+      AWS_REGION: "us-west-2"
       GHA_ROLE_STAGE: s3-bagit-validator-gha-stage
       GHA_ROLE_PROD: s3-bagit-validator-gha-prod
       ECR_STAGE: "s3-bagit-validator-stage"
