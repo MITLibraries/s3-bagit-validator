@@ -13,6 +13,11 @@
 # repository.
 * @mitlibraries/dataeng
 
+# Infra should always been involved with changes to the build workflows
+/.github/dev-build.yml @mitlibraries/infraeng
+/.github/stage-build.yml @mitlibraries/infraeng
+/.github/prod-promote.yml @mitlibraries/infraeng
+
 # We set the senior engineer in the team as the owner of the CODEOWNERS file as
 # a layer of protection for unauthorized changes.
 /.github/CODEOWNERS @ghukill

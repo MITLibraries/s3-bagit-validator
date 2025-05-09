@@ -3,6 +3,7 @@
 ###   and review the other commented lines in the document.                 ###
 ECR_NAME_DEV:=s3-bagit-validator-dev
 ECR_URL_DEV:=222053980223.dkr.ecr.us-east-1.amazonaws.com/s3-bagit-validator-dev
+ECR_URL_WEST_DEV:=222053980223.dkr.ecr.us-west-2.amazonaws.com/s3-bagit-validator-dev
 FUNCTION_DEV:=s3-bagit-validator-dev
 ### End of Terraform-generated header                                       ###
 SHELL=/bin/bash
@@ -17,17 +18,23 @@ help: # Preview Makefile commands
 dist-dev: ## Build docker container (intended for developer-based manual build)
 	docker build --platform linux/amd64 \
 	    -t $(ECR_URL_DEV):latest \
+	    -t $(ECR_URL_WEST_DEV):latest \
 		-t $(ECR_URL_DEV):`git describe --always` \
+		-t $(ECR_URL_WEST_DEV):`git describe --always` \
 		-t $(ECR_NAME_DEV):latest .
 
 publish-dev: dist-dev ## Build, tag and push (intended for developer-based manual publish)
 	docker login -u AWS -p $$(aws ecr get-login-password --region us-east-1) $(ECR_URL_DEV)
 	docker push $(ECR_URL_DEV):latest
 	docker push $(ECR_URL_DEV):`git describe --always`
+	docker login -u AWS -p $$(aws ecr get-login-password --region us-west-2) $(ECR_URL_WEST_DEV)
+	docker push $(ECR_URL_WEST_DEV):latest
+	docker push $(ECR_URL_WEST_DEV):`git describe --always`
 
 ### If this is a Lambda repo, uncomment the two lines below     ###
 update-lambda-dev: ## Updates the lambda with whatever is the most recent image in the ecr (intended for developer-based manual update)
-	aws lambda update-function-code --function-name $(FUNCTION_DEV) --image-uri $(ECR_URL_DEV):latest
+	aws lambda update-function-code --region us-east-1 --function-name $(FUNCTION_DEV) --image-uri $(ECR_URL_DEV):latest
+	aws lambda update-function-code --region us-west-2 --function-name $(FUNCTION_DEV) --image-uri $(ECR_URL_WEST_DEV):latest
 
 
 ### Terraform-generated manual shortcuts for deploying to Stage. This       ###
