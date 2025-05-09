@@ -252,6 +252,11 @@ mindmap
 				S3 Inventory data
 ```
 
+### Linked Repositories
+
+- [mitlib-tf-workloads-cdps-storage](https://github.com/MITLibraries/mitlib-tf-workloads-cdps-storage)
+- [mitlib-tf-workloads-ecr](https://github.com/MITLibraries/mitlib-tf-workloads-ecr)
+
 ## Maintainers
 
 * Team: [DataEng](https://github.com/orgs/MITLibraries/teams/dataeng)
