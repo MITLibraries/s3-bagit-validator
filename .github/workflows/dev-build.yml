@@ -1,9 +1,12 @@
 ### This is the Terraform-generated dev-build.yml workflow for the          ###
 ### s3-bagit-validator-dev app repository. If this is a Lambda repo,        ###
 ### uncomment the FUNCTION line at the end of the document.                 ###
-### If the container requires any additional pre-build commands, uncomment  ###
-### and edit the PREBUILD line at the end of the document.                  ###
 name: Dev Container Build and Deploy
+
+# checkov:skip=CKV2_GHA_1:The shared workflow contains the permissions constraints
+# NOTE: The above checkov skip command doesn't actually work and this workflow
+#       will always show a checkov warning.
+
 on:
   workflow_dispatch:
   pull_request:
@@ -13,13 +16,21 @@ on:
       - '.github/**'
 
 jobs:
-  deploy:
-    name: Dev Container Deploy
-    uses: mitlibraries/.github/.github/workflows/ecr-shared-deploy-dev.yml@main
+  deploy-east:
+    name: Dev Container Deploy (US East 1)
+    uses: mitlibraries/.github/.github/workflows/ecr-shared-deploy-dev.yml@INFRA-526
     secrets: inherit
     with:
       AWS_REGION: "us-east-1"
       GHA_ROLE: "s3-bagit-validator-gha-dev"
       ECR: "s3-bagit-validator-dev"
       FUNCTION: "s3-bagit-validator-dev"
-      # PREBUILD: 
+  deploy-west:
+    name: Dev Container Deploy (US West 2)
+    uses: mitlibraries/.github/.github/workflows/ecr-shared-deploy-dev.yml@INFRA-526
+    secrets: inherit
+    with:
+        AWS_REGION: "us-west-2"
+        GHA_ROLE: "s3-bagit-validator-gha-dev"
+        ECR: "s3-bagit-validator-dev"
+        FUNCTION: "s3-bagit-validator-dev"
