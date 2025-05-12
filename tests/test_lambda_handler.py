@@ -103,8 +103,8 @@ class TestValidateSecret:
 
 
 class TestResponseGeneration:
-    def test_generate_error_response(self):
-        response = validator.generate_error_response(
+    def test_generate_http_error_response(self):
+        response = validator.generate_http_error_response(
             "Test error message", http_status_code=HTTPStatus.BAD_REQUEST
         )
         assert response["statusCode"] == HTTPStatus.BAD_REQUEST
@@ -115,22 +115,35 @@ class TestResponseGeneration:
             "error_details": None,
         }
 
-    def test_generate_error_response_default_status(self):
-        response = validator.generate_error_response("Test error message")
+    def test_generate_http_error_response_default_status(self):
+        response = validator.generate_http_error_response("Test error message")
         assert response["statusCode"] == HTTPStatus.INTERNAL_SERVER_ERROR
         assert json.loads(response["body"]) == {
             "error": "Test error message",
             "error_details": None,
         }
 
-    def test_generate_result_response(self):
-        test_data = {"key": "value", "nested": {"data": 123}}
-        response = validator.generate_result_response(test_data)
+    def test_generate_http_success_response_json_success(self):
+        test_data = json.dumps({"key": "value", "nested": {"data": 123}})
+        response = validator.generate_http_success_response(
+            body=test_data, mimetype="application/json"
+        )
         assert response["statusCode"] == HTTPStatus.OK
         assert response["statusDescription"] == "200 OK"
         assert response["headers"] == {"Content-Type": "application/json"}
         assert response["isBase64Encoded"] is False
-        assert json.loads(response["body"]) == test_data
+        assert response["body"] == test_data
+
+    def test_generate_http_success_response_csv_success(self):
+        test_data = "123,456,789\nabc,def,ghi"
+        response = validator.generate_http_success_response(
+            body=test_data, mimetype="text/csv"
+        )
+        assert response["statusCode"] == HTTPStatus.OK
+        assert response["statusDescription"] == "200 OK"
+        assert response["headers"] == {"Content-Type": "text/csv"}
+        assert response["isBase64Encoded"] is False
+        assert response["body"] == test_data
 
 
 class TestLambdaHandler:
@@ -182,6 +195,19 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["valid"] is True
         assert body["aip_s3_uri"] == "s3://bucket/aip"
+
+    def test_lambda_handler_inventory_action(self):
+        event = {
+            "action": "inventory",
+            "challenge_secret": "i-am-secret",
+        }
+        with patch("lambdas.validator.S3InventoryClient") as mock_s3_inventory_client:
+            mock_instance = mock_s3_inventory_client.return_value
+            mock_instance.get_aips_df.return_value = pd.DataFrame([{"123": "abc"}])
+            response = validator.lambda_handler(event, {})
+
+        assert response["statusCode"] == HTTPStatus.OK
+        assert response["body"] == "123\nabc\n"
 
     def test_lambda_handler_ping_action(self):
         event = {

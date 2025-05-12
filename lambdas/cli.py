@@ -4,7 +4,6 @@ import concurrent.futures
 import json
 import logging
 import os.path
-import tempfile
 import time
 from http import HTTPStatus
 from threading import Lock
@@ -16,7 +15,6 @@ import pandas as pd
 import requests
 
 from lambdas.config import Config, configure_logger
-from lambdas.utils.aws.s3_inventory import S3InventoryClient
 
 logger = logging.getLogger(__name__)
 CONFIG = Config()
@@ -268,7 +266,6 @@ def bulk_validate(
 
 
 @cli.command()
-@click.pass_context
 @click.option(
     "--output-csv-filepath",
     "-o",
@@ -279,51 +276,21 @@ def bulk_validate(
         "lightweight resume / retry functionality."
     ),
 )
-@click.option(
-    "--retry-failed",
-    "-r",
-    required=False,
-    is_flag=True,
-    help="Retry validation of AIPs if found in pre-existing results but had failed.",
-)
-@click.option(
-    "--max-workers",
-    "-w",
-    required=False,
-    type=int,
-    default=25,
-    envvar="LAMBDA_MAX_CONCURRENCY",
-    help=(
-        "Maximum number of concurrent validation workers.  This should not exceed the "
-        "maximum concurrency for the deployed AWS Lambda function."
-    ),
-)
-def validate_all(
-    ctx: click.Context,
+def inventory(
     output_csv_filepath: str,
-    *,
-    retry_failed: bool,
-    max_workers: int,
 ) -> None:
-    """Validate all AIPs in the current AWS environment.
-
-    This validation is based on the specified S3 Inventory data buckets for the
-    environment. If an AIP is not referenced in the S3 inventory, it will not be
-    validated.
-    """
-    s3i_client = S3InventoryClient()
-    input_df = s3i_client.get_aips_df()
-    logger.debug(f"{len(input_df)} AIPs retrieved from S3 Inventory")
-    s3_uris = input_df["aip_s3_uri"]
-    with tempfile.NamedTemporaryFile(mode="a+", delete=False, suffix=".csv") as temp_file:
-        s3_uris.to_csv(temp_file, index=False)
-        ctx.invoke(
-            bulk_validate,
-            input_csv_filepath=temp_file.name,
-            output_csv_filepath=output_csv_filepath,
-            retry_failed=retry_failed,
-            max_workers=max_workers,
-        )
+    """Generate CSV of S3 Inventory data for all AIPs in current environment."""
+    response = requests.post(
+        CONFIG.lambda_endpoint_url,
+        json={
+            "action": "inventory",
+            "challenge_secret": CONFIG.CHALLENGE_SECRET,
+        },
+        timeout=30,
+    )
+    with open(output_csv_filepath, "wb") as csv_file:
+        csv_file.write(response.content)
+    logger.debug(f"AIP inventory CSV created at {output_csv_filepath}")
 
 
 def validate_aip_via_lambda(

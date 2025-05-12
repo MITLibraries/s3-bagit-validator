@@ -288,36 +288,25 @@ class TestBulkValidateCommand:
         assert "Validating 4 AIPs" in result.output
 
 
-class TestValidateAll:
-    def test_validate_all_success(self, caplog, tmp_path):
-        output_csv = str(tmp_path / "output.csv")
-        s3_uris = [
-            "s3://1",
-            "s3://2",
-            "s3://3",
-            "s3://4",
-            "s3://5",
-            "s3://6",
-            "s3://7",
-            "s3://8",
-            "s3://9",
-            "s3://10",
-        ]
-        s3_uris_df = pd.DataFrame({"aip_s3_uri": s3_uris})
-        with patch(
-            "lambdas.utils.aws.s3_inventory.S3InventoryClient.get_aips_df",
-            return_value=s3_uris_df,
-        ) as _mock_inventory:
-            caplog.set_level("DEBUG")
+class TestInventory:
+    def test_inventory_success(self, tmp_path):
+        output_csv_filepath = str(tmp_path / "output.csv")
+        with patch("requests.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.content = b"123\nabc\n"
+            mock_post.return_value = mock_response
             runner = CliRunner()
             args = [
                 "--verbose",
-                "validate-all",
+                "inventory",
                 "-o",
-                output_csv,
+                output_csv_filepath,
             ]
             result = runner.invoke(cli, args)
-            assert "10 AIPs retrieved from S3 Inventory" in result.output
+            with open(output_csv_filepath) as output_csv:
+                assert output_csv.read() == "123\nabc\n"
+            assert "AIP inventory CSV created at " in result.output
 
 
 class TestValidateAipViaLambda:
