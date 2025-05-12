@@ -4,7 +4,7 @@ Date: 2023-05-09
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 With the addition of the `inventory` action to the `s3-bagit-validator` lambda, the lambda's scope is extending beyond what was originally envisioned. While the ability to export a CSV of S3 Inventory data is a convenience desired by stakeholders and using the lambda makes more sense than the sidecar CLI app, it is beginning to create a conceptual tension for the developers. This should represent the final extension of the lambda beyond its original scope of validating AIPs in S3. Any further extension requires a full reconsideration of the lambda and sidecar CLI app.

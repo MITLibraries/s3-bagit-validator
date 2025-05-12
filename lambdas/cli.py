@@ -286,7 +286,7 @@ def inventory(
             "action": "inventory",
             "challenge_secret": CONFIG.CHALLENGE_SECRET,
         },
-        timeout=900,  # 15 min timeout (AWS Lambda maximum) for large AIPs
+        timeout=30,
     )
     with open(output_csv_filepath, "wb") as csv_file:
         csv_file.write(response.content)

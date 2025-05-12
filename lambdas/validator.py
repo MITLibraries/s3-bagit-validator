@@ -41,7 +41,9 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         payload = parse_payload(event)
     except ValueError as exc:
         logger.error(exc)  # noqa: TRY400
-        return generate_error_response(str(exc), http_status_code=HTTPStatus.BAD_REQUEST)
+        return generate_http_error_response(
+            str(exc), http_status_code=HTTPStatus.BAD_REQUEST
+        )
 
     configure_logger(logging.getLogger(), verbose=payload.verbose)
     logger.debug(json.dumps(event))
@@ -51,7 +53,9 @@ def lambda_handler(event: dict, _context: dict) -> dict:
         validate_secret(payload.challenge_secret)
     except RuntimeError as exc:
         logger.error(exc)  # noqa: TRY400
-        return generate_error_response(str(exc), http_status_code=HTTPStatus.UNAUTHORIZED)
+        return generate_http_error_response(
+            str(exc), http_status_code=HTTPStatus.UNAUTHORIZED
+        )
 
     # perform requested action
     try:
@@ -61,19 +65,19 @@ def lambda_handler(event: dict, _context: dict) -> dict:
             return inventory()
         if payload.action == "validate":
             return validate(payload)
-        return generate_error_response(
+        return generate_http_error_response(
             f"action not recognized: '{payload.action}'",
             http_status_code=HTTPStatus.BAD_REQUEST,
         )
     except AIPValidationError as exc:
-        return generate_error_response(
+        return generate_http_error_response(
             error=str(exc),
             error_details=exc.error_details,
             http_status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
     except Exception as exc:
         logger.exception("Unhandled exception")
-        return generate_error_response(
+        return generate_http_error_response(
             str(exc),
             http_status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
         )
@@ -105,7 +109,7 @@ def validate_secret(challenge_secret: str | None) -> None:
         raise RuntimeError("Challenge secret missing or mismatch.")
 
 
-def generate_error_response(
+def generate_http_error_response(
     error: str,
     error_details: dict | None = None,
     http_status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -128,18 +132,7 @@ def generate_error_response(
     }
 
 
-def generate_result_csv_response(response: str) -> dict:
-    """Produce a response object suitable for CSV responses."""
-    return {
-        "statusCode": HTTPStatus.OK,
-        "statusDescription": "200 OK",
-        "headers": {"Content-Type": "text/csv"},
-        "isBase64Encoded": False,
-        "body": response,
-    }
-
-
-def generate_result_http_response(response: dict) -> dict:
+def generate_http_success_response(body: str, mimetype: str) -> dict:
     """Produce a response object suitable for HTTP responses.
 
     See more: https://docs.aws.amazon.com/apigateway/latest/developerguide/
@@ -148,9 +141,9 @@ def generate_result_http_response(response: dict) -> dict:
     return {
         "statusCode": HTTPStatus.OK,
         "statusDescription": "200 OK",
-        "headers": {"Content-Type": "application/json"},
+        "headers": {"Content-Type": mimetype},
         "isBase64Encoded": False,
-        "body": json.dumps(response),
+        "body": body,
     }
 
 
@@ -162,20 +155,27 @@ def ping() -> dict:
         """select count(*) as inventory_count from inventory;"""
     )
 
-    return generate_result_http_response(
-        {
-            "response": "pong",
-            "inventory_query_test": count_df.to_dict(orient="records"),
-        }
+    return generate_http_success_response(
+        body=json.dumps(
+            {
+                "response": "pong",
+                "inventory_query_test": count_df.to_dict(orient="records"),
+            }
+        ),
+        mimetype="application/json",
     )
 
 
 def inventory() -> dict:
-    """Validate a single AIP."""
+    """Generate a CSV of all AIPs in the current environment based on S3 Inventory data.
+
+    Contains the following columns: bucket, aip_uuid, aip_s3_key,
+    aip_s3_uri, aip_files_count, total_size_bytes, earliest_file_date, latest_file_date.
+    """
     s3i_client = S3InventoryClient()
     input_df = s3i_client.get_aips_df()
     csv_string = input_df.to_csv(index=False)
-    return generate_result_csv_response(csv_string)
+    return generate_http_success_response(csv_string, "text/csv")
 
 
 def validate(payload: InputPayload) -> dict:
@@ -185,7 +185,7 @@ def validate(payload: InputPayload) -> dict:
     elif payload.aip_s3_uri:
         aip = AIP.from_s3_uri(payload.aip_s3_uri)
     else:
-        return generate_error_response(
+        return generate_http_error_response(
             error="Either AIP S3 URI or UUID is required.",
             http_status_code=HTTPStatus.BAD_REQUEST,
         )
@@ -193,4 +193,6 @@ def validate(payload: InputPayload) -> dict:
     result = aip.validate(num_workers=payload.num_workers)
     logger.info(f"AIP '{result.aip_s3_uri}' is valid: {result.valid}")
 
-    return generate_result_http_response(result.to_dict(exclude=["manifest"]))
+    return generate_http_success_response(
+        body=json.dumps(result.to_dict(exclude=["manifest"])), mimetype="application/json"
+    )
