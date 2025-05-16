@@ -443,13 +443,11 @@
             "version": "==5.0"
         },
         "boto3-stubs": {
-            "extras": [
-                "s3"
-            ],
             "hashes": [
                 "sha256:04f0076b30218266178e9b99eb7156778f3a6242092064d545df7de88264fbd5",
                 "sha256:259fee3520b5d728193587cf3ab1619e7e12d2a4e9b4be7786d5d0de6672754b"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.8'",
             "version": "==1.38.17"
         },
