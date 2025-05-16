@@ -199,7 +199,7 @@ pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.c
 pipenv run cli --verbose bulk-validate -i output/all-aips-2025-05-02.csv -o output/all-aips-2025-05-02.csv --retry-failed
 ```
 
-### pipenv run inventory
+### pipenv cli run inventory
 ```text
 Usage: -c inventory [OPTIONS]
 
