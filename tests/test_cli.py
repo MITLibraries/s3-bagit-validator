@@ -287,6 +287,54 @@ class TestBulkValidateCommand:
         result = runner.invoke(cli, args)
         assert "Validating 4 AIPs" in result.output
 
+    def test_bulk_validate_writes_aip_uuid_to_csv_if_error_raised(
+        self,
+        tmp_path,
+    ):
+        output_csv_filepath = str(tmp_path / "output.csv")
+        with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
+            mock_validate.side_effect = [ValueError("An error was raised")]
+        runner = CliRunner()
+        args = [
+            "--verbose",
+            "bulk-validate",
+            "-i",
+            "tests/fixtures/cli/bulk-validation/single_uuid_input.csv",
+            "-o",
+            output_csv_filepath,
+        ]
+        runner.invoke(cli, args)
+        with open(output_csv_filepath) as output_csv:
+            assert output_csv.read() == (
+                "aip_uuid,bucket,aip_s3_uri,valid,error,error_details,elapsed\n"
+                "test-uuid-1,,,False,Invalid URL 'None': No scheme supplied. "
+                "Perhaps you meant https://None?,,\n"
+            )
+
+    def test_bulk_validate_writes_aip_s3_uri_to_csv_if_error_raised(
+        self,
+        tmp_path,
+    ):
+        output_csv_filepath = str(tmp_path / "output.csv")
+        with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
+            mock_validate.side_effect = [ValueError("An error was raised")]
+        runner = CliRunner()
+        args = [
+            "--verbose",
+            "bulk-validate",
+            "-i",
+            "tests/fixtures/cli/bulk-validation/single_s3_uri_input.csv",
+            "-o",
+            output_csv_filepath,
+        ]
+        runner.invoke(cli, args)
+        with open(output_csv_filepath) as output_csv:
+            assert output_csv.read() == (
+                "aip_uuid,bucket,aip_s3_uri,valid,error,error_details,elapsed\n"
+                "s3://bucket/test-uri-2,,,False,Invalid URL 'None': No scheme supplied. "
+                "Perhaps you meant https://None?,,\n"
+            )
+
 
 class TestInventory:
     def test_inventory_success(self, tmp_path):
