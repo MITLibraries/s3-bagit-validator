@@ -337,6 +337,8 @@ def validate_aip_via_lambda(
 
     # if lambda returns non-200 (OK) response, prepare result payload
     if response.status_code != HTTPStatus.OK:
+        result["aip_uuid"] = aip_uuid
+        result["aip_s3_uri"] = aip_s3_uri
         message = (
             "Non 200 response from Lambda: "
             f"{response.content.decode()[:RAW_RESPONSE_TRUNCATE_LENGTH]}"
@@ -374,8 +376,8 @@ def validate_aip_bulk_worker(
         with results_lock:
             results_df.loc[row_index] = {  # type: ignore[call-overload]
                 "bucket": result.get("bucket"),
-                "aip_uuid": result.get("aip_uuid"),
-                "aip_s3_uri": result.get("aip_s3_uri"),
+                "aip_uuid": result.get("aip_uuid", aip_uuid),
+                "aip_s3_uri": result.get("aip_s3_uri", s3_uri),
                 "valid": bool(result.get("valid", False)),
                 "error": result.get("error"),
                 "error_details": (
