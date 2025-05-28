@@ -292,48 +292,50 @@ class TestBulkValidateCommand:
         tmp_path,
     ):
         output_csv_filepath = str(tmp_path / "output.csv")
-        with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
-            mock_validate.side_effect = [ValueError("An error was raised")]
-        runner = CliRunner()
-        args = [
-            "--verbose",
-            "bulk-validate",
-            "-i",
-            "tests/fixtures/cli/bulk-validation/single_uuid_input.csv",
-            "-o",
-            output_csv_filepath,
-        ]
-        runner.invoke(cli, args)
-        with open(output_csv_filepath) as output_csv:
-            assert output_csv.read() == (
-                "aip_uuid,bucket,aip_s3_uri,valid,error,error_details,elapsed\n"
-                "test-uuid-1,,,False,Invalid URL 'None': No scheme supplied. "
-                "Perhaps you meant https://None?,,\n"
-            )
+        with patch("requests.post") as mock_response:
+            mock_response.return_value.json.return_value = {
+                "error": "An error was raised"
+            }
+            runner = CliRunner()
+            args = [
+                "--verbose",
+                "bulk-validate",
+                "-i",
+                "tests/fixtures/cli/bulk-validation/single_uuid_input.csv",
+                "-o",
+                output_csv_filepath,
+            ]
+            runner.invoke(cli, args)
+            with open(output_csv_filepath) as output_csv:
+                assert output_csv.read() == (
+                    "aip_uuid,bucket,aip_s3_uri,valid,error,error_details,elapsed\n"
+                    "test-uuid-1,,,False,An error was raised,,\n"
+                )
 
     def test_bulk_validate_writes_aip_s3_uri_to_csv_if_error_raised(
         self,
         tmp_path,
     ):
         output_csv_filepath = str(tmp_path / "output.csv")
-        with patch("lambdas.cli.validate_aip_via_lambda") as mock_validate:
-            mock_validate.side_effect = [ValueError("An error was raised")]
-        runner = CliRunner()
-        args = [
-            "--verbose",
-            "bulk-validate",
-            "-i",
-            "tests/fixtures/cli/bulk-validation/single_s3_uri_input.csv",
-            "-o",
-            output_csv_filepath,
-        ]
-        runner.invoke(cli, args)
-        with open(output_csv_filepath) as output_csv:
-            assert output_csv.read() == (
-                "aip_uuid,bucket,aip_s3_uri,valid,error,error_details,elapsed\n"
-                "s3://bucket/test-uri-2,,,False,Invalid URL 'None': No scheme supplied. "
-                "Perhaps you meant https://None?,,\n"
-            )
+        with patch("requests.post") as mock_response:
+            mock_response.return_value.json.return_value = {
+                "error": "An error was raised"
+            }
+            runner = CliRunner()
+            args = [
+                "--verbose",
+                "bulk-validate",
+                "-i",
+                "tests/fixtures/cli/bulk-validation/single_s3_uri_input.csv",
+                "-o",
+                output_csv_filepath,
+            ]
+            runner.invoke(cli, args)
+            with open(output_csv_filepath) as output_csv:
+                assert output_csv.read() == (
+                    "aip_s3_uri,bucket,aip_uuid,valid,error,error_details,elapsed\n"
+                    "s3://bucket/test-uri-2,,,False,An error was raised,,\n"
+                )
 
 
 class TestInventory:
