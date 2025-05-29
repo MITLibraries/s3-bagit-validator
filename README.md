@@ -241,6 +241,11 @@ AIP_VALIDATOR_ENDPOINT=### Deployed AWS Lambda endpoint URL; required for CLI co
 LAMBDA_MAX_CONCURRENCY=### Maximum number of parallel workers for CLI bulk validation.  This should not exceed the maximum concurrency of the deployed AWS Lambda.
 ```
 
+## Technical Limitations of the application
+Given that this application leverages AWS Lambda services, there are limitations to which bags it can successfully process. Lambdas have a 15 minute execution time limit which could cause issues with larger bags or bags with many files. Files larger than 5 GB must have checksums calculated in a more time-consuming operation, meaning that a bag with many 5 GB+ files may be more likely experience timeout issues than a similarly sized bag with smaller files. 
+
+In practice, the application has successfully processed a 97.7 GB bag and a 8,758 file bag in S3. It failed to process a bag with over 50,000 files though and we are investigating how we could handle bags with this many files or more.
+
 ## Related Assets
 
 ```mermaid
