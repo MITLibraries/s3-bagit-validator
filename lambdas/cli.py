@@ -393,6 +393,8 @@ def validate_aip_bulk_worker(
         error_msg = f"Error validating AIP {aip_uuid or s3_uri}: {exc}"
         logger.error(error_msg)
         with results_lock:
+            results_df.loc[row_index, "aip_uuid"] = aip_uuid
+            results_df.loc[row_index, "aip_s3_uri"] = s3_uri
             results_df.loc[row_index, "error"] = str(exc)
 
     # incrementally update the output CSV

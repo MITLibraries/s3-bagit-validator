@@ -337,6 +337,57 @@ class TestBulkValidateCommand:
                     "s3://bucket/test-uri-2,,,False,An error was raised,,\n"
                 )
 
+    def test_bulk_validate_writes_aip_uuid_to_csv_for_api_response_exception(
+        self,
+        tmp_path,
+    ):
+        output_csv_filepath = str(tmp_path / "output.csv")
+        with patch("requests.post") as mock_response:
+            mock_response.return_value.json.side_effect = [
+                json.JSONDecodeError("Expecting value", "", 0)
+            ]
+            runner = CliRunner()
+            args = [
+                "--verbose",
+                "bulk-validate",
+                "-i",
+                "tests/fixtures/cli/bulk-validation/single_uuid_input.csv",
+                "-o",
+                output_csv_filepath,
+            ]
+            runner.invoke(cli, args)
+            with open(output_csv_filepath) as output_csv:
+                assert output_csv.read() == (
+                    "aip_uuid,bucket,aip_s3_uri,valid,error,error_details,elapsed\n"
+                    "test-uuid-1,,,False,Expecting value: line 1 column 1 (char 0),,\n"
+                )
+
+    def test_bulk_validate_writes_aip_s3_uri_to_csv_for_non_200_api_response(
+        self,
+        tmp_path,
+    ):
+        output_csv_filepath = str(tmp_path / "output.csv")
+        with patch("requests.post") as mock_response:
+            mock_response.return_value.json.side_effect = [
+                json.JSONDecodeError("Expecting value", "", 0)
+            ]
+            runner = CliRunner()
+            args = [
+                "--verbose",
+                "bulk-validate",
+                "-i",
+                "tests/fixtures/cli/bulk-validation/single_s3_uri_input.csv",
+                "-o",
+                output_csv_filepath,
+            ]
+            runner.invoke(cli, args)
+            with open(output_csv_filepath) as output_csv:
+                assert output_csv.read() == (
+                    "aip_s3_uri,bucket,aip_uuid,valid,error,error_details,elapsed\n"
+                    "s3://bucket/test-uri-2,,,False,Expecting value: line 1 column 1 "
+                    "(char 0),,\n"
+                )
+
 
 class TestInventory:
     def test_inventory_success(self, tmp_path):
