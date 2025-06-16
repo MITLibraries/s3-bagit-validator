@@ -165,7 +165,7 @@ class S3Client:
 
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                f"Initial failure to get checksum: '{exc}', "
+                f"Initial failure to get checksum for '{s3_uri}': '{exc}', "
                 "calculating from object bytes."
             )
             base64_checksum = cls.calculate_checksum_for_object(s3_uri)

@@ -151,9 +151,9 @@ class TestAIP:
     ):
         response = aip.validate()
 
-        assert response.valid is True
-        assert response.aip_s3_uri == "s3://bucket/aip"
-        assert response.error is None
+        assert response["valid"] is True
+        assert response["aip_s3_uri"] == "s3://bucket/aip"
+        assert "error" not in response
 
     def test_validate_folder_not_exists(self, aip):
 
@@ -162,9 +162,9 @@ class TestAIP:
 
             response = aip.validate()
 
-            assert response.valid is False
-            assert response.error == "Bagit AIP folder not found in S3"
-            assert response.error_details == {
+            assert response["valid"] is False
+            assert response["error"] == "Bagit AIP folder not found in S3"
+            assert response["error_details"] == {
                 "type": "aip_folder_not_found",
                 "s3_uri": "s3://bucket/aip",
             }

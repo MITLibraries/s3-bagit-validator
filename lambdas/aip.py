@@ -5,6 +5,7 @@ import re
 from dataclasses import asdict, dataclass
 from threading import Lock
 from time import perf_counter
+from typing import Any
 
 import pandas as pd
 from botocore.exceptions import ClientError
@@ -129,7 +130,7 @@ class AIP:
             s3_inventory_client=s3_inventory_client,
         )
 
-    def validate(self, num_workers: int | None = None) -> ValidationResponse:
+    def validate(self, num_workers: int | None = None) -> dict[str, Any]:
         """Validate that AIP manifest files and checksums match the AIP in S3.
 
         Flow:
@@ -161,27 +162,27 @@ class AIP:
             self.file_checksums = self._get_aip_file_checksums(num_workers=num_workers)
             self._check_checksums()
 
-            return ValidationResponse(
-                bucket=self.s3_bucket,
-                aip_uuid=self.aip_uuid,
-                aip_s3_uri=self.s3_uri,
-                valid=True,
-                elapsed=round(perf_counter() - start_time, 2),
-                manifest=self.manifest_as_dict,
-            )
+            return {
+                "bucket": self.s3_bucket,
+                "aip_uuid": self.aip_uuid,
+                "aip_s3_uri": self.s3_uri,
+                "valid": True,
+                "elapsed": round(perf_counter() - start_time, 2),
+                "manifest": self.manifest_as_dict,
+            }
 
         except AIPValidationError as exception:
 
-            return ValidationResponse(
-                bucket=self.s3_bucket,
-                aip_uuid=self.aip_uuid,
-                aip_s3_uri=self.s3_uri,
-                valid=False,
-                elapsed=round(perf_counter() - start_time, 2),
-                manifest=self.manifest_as_dict,
-                error=str(exception),
-                error_details=exception.error_details,
-            )
+            return {
+                "bucket": self.s3_bucket,
+                "aip_uuid": self.aip_uuid,
+                "aip_s3_uri": self.s3_uri,
+                "valid": False,
+                "elapsed": round(perf_counter() - start_time, 2),
+                "manifest": self.manifest_as_dict,
+                "error": str(exception),
+                "error_details": exception.error_details,
+            }
 
     def _check_aip_s3_folder_exists(self) -> None:
         if not self.s3_client.folder_exists(self.s3_uri):

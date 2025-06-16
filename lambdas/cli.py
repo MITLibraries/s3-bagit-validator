@@ -14,10 +14,12 @@ import numpy as np
 import pandas as pd
 import requests
 
-from lambdas.config import Config, configure_logger
+from lambdas.aip import AIP
+from lambdas.config import Config, configure_logger, configure_sentry
 
 logger = logging.getLogger(__name__)
 CONFIG = Config()
+configure_sentry()
 
 RAW_RESPONSE_TRUNCATE_LENGTH = 480
 
@@ -98,24 +100,10 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
         raise click.UsageError("You must provide either --aip-uuid/-a or --s3-uri/-u.")
 
     logger.debug("Starting AIP validation")
-
-    # make request to AIP validator lambda
-    try:
-        result = validate_aip_via_lambda(
-            aip_uuid=aip_uuid,
-            aip_s3_uri=s3_uri,
-            verbose=ctx.obj["VERBOSE"],
-        )
-    except requests.exceptions.RequestException as exc:
-        error_msg = f"Error connecting to AIP validation lambda: {exc}"
-        logger.error(error_msg)
-        click.echo(error_msg, err=True)
-        ctx.exit(1)
-    except ValueError as exc:
-        error_msg = f"Error with validation parameters: {exc}"
-        logger.error(error_msg)
-        click.echo(error_msg, err=True)
-        ctx.exit(1)
+    result = validate_aip(
+        aip_uuid=aip_uuid,
+        aip_s3_uri=s3_uri,
+    )
 
     if elapsed := result.get("elapsed"):
         logger.debug(f"AIP validation elapsed: {elapsed}s")
@@ -123,18 +111,16 @@ def validate(ctx: click.Context, aip_uuid: str, s3_uri: str, *, details: bool) -
     # send results to stdout and set exit codes
     if result.get("valid"):
         if details:
-            click.echo(json.dumps(result))
+            click.echo(result)
         else:
             click.echo("OK")
         ctx.exit(0)
     else:
         click.echo(
-            json.dumps(
-                {
-                    "error": result.get("error", "Unspecified"),
-                    "error_details": result.get("error_details", None),
-                }
-            ),
+            {
+                "error": result.get("error", "Unspecified"),
+                "error_details": result.get("error_details", None),
+            },
             err=True,
         )
         ctx.exit(1)
@@ -247,7 +233,6 @@ def bulk_validate(
                     results_lock,
                     results_df,
                     output_csv_filepath,
-                    verbose=ctx.obj["VERBOSE"],
                 )
             ] = (row_index, row)
             time.sleep(0.25)
@@ -293,11 +278,9 @@ def inventory(
     logger.debug(f"AIP inventory CSV created at {output_csv_filepath}")
 
 
-def validate_aip_via_lambda(
+def validate_aip(
     aip_uuid: str | None = None,
     aip_s3_uri: str | None = None,
-    *,
-    verbose: bool = False,
 ) -> dict:
     """Validate a single AIP via the deployed AWS Lambda function.
 
@@ -312,42 +295,21 @@ def validate_aip_via_lambda(
         raise ValueError(error_msg)
 
     logger.info(f"Validating AIP: {aip_uuid or aip_s3_uri}")
+    if aip_uuid:
+        aip = AIP.from_uuid(aip_uuid)
+    elif aip_s3_uri:
+        aip = AIP.from_s3_uri(aip_s3_uri)
+    else:
+        return {"error": "Either AIP S3 URI or UUID is required."}
 
-    response = requests.post(
-        CONFIG.lambda_endpoint_url,
-        json={
-            "action": "validate",
-            "challenge_secret": CONFIG.CHALLENGE_SECRET,
-            "aip_uuid": aip_uuid,
-            "aip_s3_uri": aip_s3_uri,
-            "verbose": verbose,
-        },
-        timeout=900,  # 15 min timeout (AWS Lambda maximum) for large AIPs
-    )
+    result = aip.validate(num_workers=CONFIG.checksum_num_workers)
+    logger.info(f"AIP '{result["aip_s3_uri"]}' is valid: {result['valid']}")
 
-    # parse response from lambda
-    try:
-        result = response.json()
-    except Exception:
-        logger.error(
-            "Error parsing JSON from Lambda response. "
-            f"Raw response: {response.content.decode()[:RAW_RESPONSE_TRUNCATE_LENGTH]}"
-        )
-        raise
-
-    # if lambda returns non-200 (OK) response, prepare result payload
-    if response.status_code != HTTPStatus.OK:
+    if not result["valid"]:
         result["aip_uuid"] = aip_uuid
         result["aip_s3_uri"] = aip_s3_uri
-        message = (
-            "Non 200 response from Lambda: "
-            f"{response.content.decode()[:RAW_RESPONSE_TRUNCATE_LENGTH]}"
-        )
-        logger.warning(message)
-        if not result.get("error"):
-            result["error"] = message
+        logger.warning(result["error"][:RAW_RESPONSE_TRUNCATE_LENGTH])
         result["valid"] = False
-
     status = "OK" if result.get("valid", False) else f"FAILED: {result.get('error')}"
     logger.info(f"AIP {aip_uuid or aip_s3_uri}, validation result: {status}")
 
@@ -360,8 +322,6 @@ def validate_aip_bulk_worker(
     results_lock: Lock,
     results_df: pd.DataFrame,
     output_csv_filepath: str,
-    *,
-    verbose: bool = False,
 ) -> None:
     """Bulk validator worker function."""
     aip_uuid = row.get("aip_uuid")
@@ -369,9 +329,7 @@ def validate_aip_bulk_worker(
 
     # attempt validation and update a results dataframe
     try:
-        result = validate_aip_via_lambda(
-            aip_uuid=aip_uuid, aip_s3_uri=s3_uri, verbose=verbose
-        )
+        result = validate_aip(aip_uuid=aip_uuid, aip_s3_uri=s3_uri)
 
         with results_lock:
             results_df.loc[row_index] = {  # type: ignore[call-overload]
