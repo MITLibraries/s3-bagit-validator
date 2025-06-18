@@ -125,7 +125,7 @@ class S3Client:
         cls,
         s3_uri: str,
         size: int | None,
-        has_sha256_checksum: bool | None = None,
+        has_sha256_checksum: bool | None = None,  # noqa: FBT001
     ) -> str:
         """Get SHA256 checksum for an S3 object.
 

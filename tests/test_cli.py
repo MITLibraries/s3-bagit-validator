@@ -1,5 +1,3 @@
-# ruff: noqa: D205, D209, PLR2004
-
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
 

@@ -1,4 +1,4 @@
-# ruff: noqa: PD901, SIM117
+# ruff: noqa: SIM117
 
 from unittest.mock import MagicMock, patch
 
