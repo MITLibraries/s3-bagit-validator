@@ -194,7 +194,7 @@ class S3InventoryClient:
         aip_regex = (
             """(.+?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))/(.*)"""
         )
-        # ruff: noqa: E501, UP032
+        # ruff: noqa: UP032
         query = """
             -- CTE of all inventory data rows
             with cdps_aip_inventory as (

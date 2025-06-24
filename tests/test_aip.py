@@ -1,4 +1,4 @@
-# ruff: noqa: PLR2004, SLF001, PD901, SIM117, ARG002, E501
+# ruff: noqa: PLR2004, SLF001,  SIM117, ARG002, E501
 
 import json
 import os
