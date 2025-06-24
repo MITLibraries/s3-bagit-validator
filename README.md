@@ -242,9 +242,13 @@ LAMBDA_MAX_CONCURRENCY=### Maximum number of parallel workers for CLI bulk valid
 ```
 
 ## Technical Limitations of the application
-Given that this application leverages AWS Lambda services, there are limitations to which bags it can successfully process. Lambdas have a 15 minute execution time limit which could cause issues with larger bags or bags with many files. Files larger than 5 GB must have checksums calculated in a more time-consuming operation, meaning that a bag with many 5 GB+ files may be more likely experience timeout issues than a similarly sized bag with smaller files. 
+Given that this application leverages AWS Lambda services, there are limitations to which bags it can successfully process. Lambdas have a 15 minute execution time limit which could cause issues with larger bags or bags with many files. Files larger than 5 GB must have checksums calculated in a more time-consuming operation, meaning that a bag with many 5+ GB files may be more likely experience timeout issues than a similarly sized bag with smaller files. 
 
-In practice, the application has successfully processed a 97.7 GB bag and a 8,758 file bag in S3. It failed to process a bag with over 50,000 files though and we are investigating how we could handle bags with this many files or more.
+In practice, the application has successfully processed a 97.7 GB bag and a 8,758 file bag in S3. However, it failed to process a bag with over 50,000 files and we are investigating how we could handle bags with this many files or more.
+
+For bags that fail Lambda validaton, users can run the `IR-258-cloudshell` feature branch locally. This branch calls the validation functionality directly from the CLI rather than through a Lambda and allows for much longer-running validations. This feature branch successfully validated the bag with over 50,000 files as well as 200+ GB bags. It has run upwards of 6 hours for bags with many 5+ GB files that required the more time-consuming checksum calculation. 
+
+**NOTE** `IR-258-cloudshell` was created under a tight deadline to validate a few edge cases so it only supports the `validate` command for individual bags. Further testing and optimization are needed for this to be a sustainable and maintainable solution.
 
 ## Related Assets
 

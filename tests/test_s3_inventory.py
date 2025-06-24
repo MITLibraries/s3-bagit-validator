@@ -1,4 +1,4 @@
-# ruff: noqa: PD901, DTZ001, PLR2004, SLF001, ARG002, BLE001
+# ruff: noqa:  DTZ001, PLR2004, SLF001, ARG002, BLE001
 
 import concurrent.futures
 import datetime
