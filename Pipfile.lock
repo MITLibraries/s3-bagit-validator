@@ -425,15 +425,13 @@
             "version": "==5.0"
         },
         "boto3-stubs": {
-            "extras": [
-                "s3"
-            ],
             "hashes": [
-                "sha256:28efa210ab1f0399af4ef10fff6f3b3438c0e5111450293200e33920daf545a9",
-                "sha256:9901e3e162fff10580a56fc33634089aa2096ea91256ad157efa835b71b8ebc1"
+                "sha256:2dc863a0bae3a9f31de6cdaff083be0f5f8850d4a846a017ef6079b620294f12",
+                "sha256:6fe495830b63ffe3bbc8082e96890eee1e9a93ec5c3c1bd9b9b531ec4d90c1a7"
             ],
+            "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==1.38.42"
+            "version": "==1.38.43"
         },
         "botocore-stubs": {
             "hashes": [
