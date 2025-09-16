@@ -10,6 +10,7 @@ boto3 = "*"
 pandas = "*"
 requests = "*"
 sentry-sdk = "*"
+smart-open = "*"
 
 [dev-packages]
 black = "*"

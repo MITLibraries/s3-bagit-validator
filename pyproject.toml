@@ -10,6 +10,10 @@ disallow_untyped_calls = true
 disallow_untyped_defs = true
 exclude = ["tests/","output/"]
 
+[[tool.mypy.overrides]]
+module = ["smart_open"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 log_level = "INFO"
 markers = [
