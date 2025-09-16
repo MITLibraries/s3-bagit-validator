@@ -424,7 +424,7 @@ class TestValidateAipViaLambda:
                 "elapsed": 1.5,
             }
 
-            args, kwargs = mock_post.call_args
+            _, kwargs = mock_post.call_args
             assert kwargs["json"]["aip_uuid"] == "test-uuid"
             assert kwargs["json"]["aip_s3_uri"] is None
 
@@ -438,7 +438,7 @@ class TestValidateAipViaLambda:
             result = validate_aip_via_lambda(aip_s3_uri="s3://bucket/aip")
             assert result == {"valid": True, "elapsed": 1.5}
 
-            args, kwargs = mock_post.call_args
+            _, kwargs = mock_post.call_args
             assert kwargs["json"]["aip_s3_uri"] == "s3://bucket/aip"
             assert kwargs["json"]["aip_uuid"] is None
 
