@@ -3,6 +3,7 @@
 import json
 import shutil
 from http import HTTPStatus
+from threading import Lock
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -11,7 +12,7 @@ import requests
 from click.testing import CliRunner
 
 from lambdas import cli as cli_module
-from lambdas.cli import cli, validate_aip_via_lambda
+from lambdas.cli import cli, validate_aip_bulk_worker, validate_aip_via_lambda
 
 
 class TestCliCore:
@@ -424,7 +425,7 @@ class TestValidateAipViaLambda:
                 "elapsed": 1.5,
             }
 
-            args, kwargs = mock_post.call_args
+            _args, kwargs = mock_post.call_args
             assert kwargs["json"]["aip_uuid"] == "test-uuid"
             assert kwargs["json"]["aip_s3_uri"] is None
 
@@ -438,7 +439,7 @@ class TestValidateAipViaLambda:
             result = validate_aip_via_lambda(aip_s3_uri="s3://bucket/aip")
             assert result == {"valid": True, "elapsed": 1.5}
 
-            args, kwargs = mock_post.call_args
+            _args, kwargs = mock_post.call_args
             assert kwargs["json"]["aip_s3_uri"] == "s3://bucket/aip"
             assert kwargs["json"]["aip_uuid"] is None
 
@@ -447,3 +448,151 @@ class TestValidateAipViaLambda:
             ValueError, match="Must provide either aip_uuid or aip_s3_uri"
         ):
             validate_aip_via_lambda()
+
+
+class TestValidateAipBulkWorker:
+    @patch("lambdas.cli.validate_aip_via_lambda")
+    def test_preserves_metadata_on_successful_validation(
+        self,
+        mock_validate,
+        tmp_path,
+    ):
+        mock_validate.return_value = {
+            "bucket": "bucket",
+            "aip_uuid": "test-uuid-123",
+            "aip_s3_uri": "s3://bucket/test-aip/",
+            "valid": True,
+            "elapsed": 1.0,
+            "manifest": {"file1.txt": "abc123"},
+            "error": None,
+            "error_details": None,
+        }
+        input_data = {
+            "aip_uuid": "test-uuid-123",
+            "aip_s3_uri": "s3://bucket/test-aip/",
+            "location": "preservation-level-1",
+            "date": "2025-12-12",
+            "custodian": "digital-collections",
+        }
+        output_csv = str(tmp_path / "output.csv")
+        row = pd.Series(input_data)
+        results_df = pd.DataFrame([input_data])
+        results_df["bucket"] = None
+        results_df["valid"] = False
+        results_df["error"] = None
+        results_df["error_details"] = None
+        results_df["elapsed"] = None
+
+        validate_aip_bulk_worker(0, row, Lock(), results_df, output_csv)
+
+        result_row = results_df.loc[0]
+        assert result_row["location"] == "preservation-level-1"
+        assert result_row["date"] == "2025-12-12"
+        assert result_row["custodian"] == "digital-collections"
+        assert result_row["aip_uuid"] == "test-uuid-123"
+        assert result_row["valid"]
+        assert result_row["elapsed"] == 1.0
+        assert result_row["error"] is None
+
+    @patch("lambdas.cli.validate_aip_via_lambda")
+    def test_preserves_metadata_on_validation_failure(self, mock_validate, tmp_path):
+        output_csv = str(tmp_path / "output.csv")
+
+        input_data = {
+            "aip_uuid": "test-uuid-456",
+            "aip_s3_uri": "s3://bucket/bad-aip/",
+            "location": "preservation-level-2",
+            "date": "2025-12-11",
+            "description": "test aip",
+        }
+        row = pd.Series(input_data)
+        results_df = pd.DataFrame([input_data])
+        results_df["bucket"] = None
+        results_df["valid"] = False
+        results_df["error"] = None
+        results_df["error_details"] = None
+        results_df["elapsed"] = None
+
+        failed_result = {
+            "bucket": "bucket",
+            "aip_uuid": "test-uuid-456",
+            "aip_s3_uri": "s3://bucket/bad-aip/",
+            "valid": False,
+            "elapsed": 1.5,
+            "manifest": None,
+            "error": "Checksum mismatch",
+            "error_details": {
+                "file": "data/file1.txt",
+                "expected": "abc123",
+                "actual": "xyz789",
+            },
+        }
+
+        mock_validate.return_value = failed_result
+        validate_aip_bulk_worker(0, row, Lock(), results_df, output_csv)
+
+        result_row = results_df.loc[0]
+        assert result_row["location"] == "preservation-level-2"
+        assert result_row["date"] == "2025-12-11"
+        assert result_row["description"] == "test aip"
+        assert not result_row["valid"]
+        assert result_row["error"] == "Checksum mismatch"
+        assert result_row["error_details"] is not None
+
+    @patch("lambdas.cli.validate_aip_via_lambda")
+    def test_handles_exception_during_validation(self, mock_validate, tmp_path):
+        output_csv = str(tmp_path / "output.csv")
+
+        input_data = {
+            "aip_uuid": "test-uuid-789",
+            "aip_s3_uri": "s3://bucket/error-aip/",
+            "location": "preservation-level-3",
+        }
+        row = pd.Series(input_data)
+        results_df = pd.DataFrame([input_data])
+        results_df["bucket"] = None
+        results_df["valid"] = False
+        results_df["error"] = None
+        results_df["error_details"] = None
+        results_df["elapsed"] = None
+
+        mock_validate.side_effect = Exception("Network connection error")
+        validate_aip_bulk_worker(0, row, Lock(), results_df, output_csv)
+
+        result_row = results_df.loc[0]
+        assert "Network connection error" in result_row["error"]
+        assert result_row["location"] == "preservation-level-3"
+
+    @patch("lambdas.cli.validate_aip_via_lambda")
+    def test_error_details_serialized_to_json(self, mock_validate, tmp_path):
+        output_csv = str(tmp_path / "output.csv")
+
+        input_data = {
+            "aip_uuid": "test-uuid",
+            "aip_s3_uri": "s3://bucket/aip/",
+        }
+        row = pd.Series(input_data)
+        results_df = pd.DataFrame([input_data])
+        results_df["bucket"] = None
+        results_df["valid"] = False
+        results_df["error"] = None
+        results_df["error_details"] = None
+        results_df["elapsed"] = None
+
+        validation_result = {
+            "bucket": "bucket",
+            "aip_uuid": "test-uuid",
+            "aip_s3_uri": "s3://bucket/aip/",
+            "valid": False,
+            "elapsed": 1.0,
+            "manifest": None,
+            "error": "Validation failed",
+            "error_details": {"missing_files": ["file1.txt", "file2.txt"]},
+        }
+
+        mock_validate.return_value = validation_result
+        validate_aip_bulk_worker(0, row, Lock(), results_df, output_csv)
+
+        result_row = results_df.loc[0]
+        assert isinstance(result_row["error_details"], str)
+        assert "missing_files" in result_row["error_details"]

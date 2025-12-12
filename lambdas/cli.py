@@ -374,19 +374,23 @@ def validate_aip_bulk_worker(
         )
 
         with results_lock:
-            results_df.loc[row_index] = {  # type: ignore[call-overload]
-                "bucket": result.get("bucket"),
-                "aip_uuid": result.get("aip_uuid", aip_uuid),
-                "aip_s3_uri": result.get("aip_s3_uri", s3_uri),
-                "valid": bool(result.get("valid", False)),
-                "error": result.get("error"),
-                "error_details": (
-                    json.dumps(result.get("error_details"))
-                    if result.get("error_details") is not None
-                    else None
-                ),
-                "elapsed": result.get("elapsed"),
-            }
+            updated_row = row.to_dict()
+            updated_row.update(
+                {
+                    "bucket": result.get("bucket"),
+                    "aip_uuid": result.get("aip_uuid", aip_uuid),
+                    "aip_s3_uri": result.get("aip_s3_uri", s3_uri),
+                    "valid": bool(result.get("valid", False)),
+                    "error": result.get("error"),
+                    "error_details": (
+                        json.dumps(result.get("error_details"))
+                        if result.get("error_details") is not None
+                        else None
+                    ),
+                    "elapsed": result.get("elapsed"),
+                }
+            )
+            results_df.loc[row_index] = updated_row
 
     # catch any exceptions as a validation error
     except Exception as exc:  # noqa: BLE001
