@@ -98,7 +98,7 @@ class TestValidateSecret:
 
     def test_validate_secret_mismatch(self, monkeypatch):
         monkeypatch.setenv("CHALLENGE_SECRET", "i-am-different-secret")
-        with pytest.raises(RuntimeError, match="Challenge secret missing or mismatch."):
+        with pytest.raises(RuntimeError, match=r"Challenge secret missing or mismatch."):
             validator.validate_secret("i-am-secret")
 
 
