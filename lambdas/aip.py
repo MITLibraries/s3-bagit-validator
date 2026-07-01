@@ -171,7 +171,6 @@ class AIP:
             )
 
         except AIPValidationError as exception:
-
             return ValidationResponse(
                 bucket=self.s3_bucket,
                 aip_uuid=self.aip_uuid,
@@ -299,7 +298,7 @@ class AIP:
             # get checksum for object
             checksum = self.s3_client.get_object_checksum(
                 s3_uri,
-                size=int(inventory_row["size"]),
+                size=int(inventory_row["size"]),  # type: ignore[arg-type]
                 has_sha256_checksum=str(inventory_row["checksum_algorithm"]) == "SHA256",
             )
             logger.debug(f"AIP file: '{filepath}', checksum: '{checksum}'")
@@ -345,7 +344,6 @@ class AIP:
             if row.checksum != self.file_checksums[row.filepath]:
                 mismatches.append(row.filepath)
         if mismatches:
-
             error_details = {
                 "type": "checksum_mismatch",
                 "mismatched_files": mismatches,

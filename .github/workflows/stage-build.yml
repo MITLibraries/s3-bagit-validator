@@ -5,10 +5,6 @@
 ### the PREBUILD line at the end of the document.                          ###
 name: Stage Container Build and Deploy
 
-# checkov:skip=CKV2_GHA_1:The shared workflow contains the permissions constraints
-# NOTE: The above checkov skip command doesn't actually work and this workflow
-#       will always show a checkov warning.
-
 on:
   workflow_dispatch:
   push:
@@ -17,25 +13,30 @@ on:
     paths-ignore:
       - '.github/**'
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   deploy-us-east-1:
     name: Stage Container Deploy
-    uses: mitlibraries/.github/.github/workflows/ecr-shared-deploy-stage.yml@main
+    uses: mitlibraries/.github/.github/workflows/ecr-multi-arch-deploy-stage.yml@main
     secrets: inherit
     with:
       AWS_REGION: "us-east-1"
       GHA_ROLE: "s3-bagit-validator-gha-stage"
       ECR: "s3-bagit-validator-stage"
       FUNCTION: "s3-bagit-validator-stage"
-      # PREBUILD: 
+      # PREBUILD:
 
   deploy-us-west-2:
     name: Stage Container Deploy us-west-2
-    uses: mitlibraries/.github/.github/workflows/ecr-shared-deploy-stage.yml@main
+    uses: mitlibraries/.github/.github/workflows/ecr-multi-arch-deploy-stage.yml@main
     secrets: inherit
     with:
       AWS_REGION: "us-west-2"
       GHA_ROLE: "s3-bagit-validator-gha-stage"
       ECR: "s3-bagit-validator-stage"
       FUNCTION: "s3-bagit-validator-stage"
-      # PREBUILD: 
+      # PREBUILD:
+

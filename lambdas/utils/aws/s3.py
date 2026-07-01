@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class S3Client:
-
     @classmethod
     def get_client(cls) -> "BotoS3Client":
         return boto3.client("s3")
