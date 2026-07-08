@@ -83,7 +83,7 @@ CHALLENGE_SECRET=### Secret string that is passed as part of lambda invocation p
 
 Then run one of the following CLI commands:
 
-### `pipenv run cli`
+### `uv run cli`
 ```text
 Usage: -c [OPTIONS] COMMAND [ARGS]...
 
@@ -99,7 +99,7 @@ Commands:
   validate       Validate a single AIP stored in S3 via the AIP UUID or...
 ```
 
-### `pipenv run cli ping`
+### `uv run cli ping`
 ```text
 Usage: -c ping [OPTIONS]
 
@@ -112,10 +112,10 @@ Options:
 Example:
 
 ```shell
-pipenv run cli ping
+uv run --env-file .env cli ping
 ```
 
-### `pipenv run cli validate`
+### `uv run cli validate`
 ```text
 Usage: -c validate [OPTIONS]
 
@@ -137,7 +137,7 @@ Options:
   --help               Show this message and exit.
 ```
 
-### `pipenv run cli bulk-validate`
+### `uv run cli bulk-validate`
 ```text
 Usage: -c bulk-validate [OPTIONS]
 
@@ -187,19 +187,19 @@ Examples:
 
 ```shell
 # providing the AIP UUID
-pipenv run cli --verbose validate --aip-uuid="c73d10a7-7cd2-406f-95b6-b12e8f2da646"
+uv run --env-file .env cli --verbose validate --aip-uuid="c73d10a7-7cd2-406f-95b6-b12e8f2da646"
 
 # providing the explicit S3 URI of the AIP
-pipenv run cli --verbose validate --s3-uri="s3://my-bucket/c73d/10a7/7cd2/406f/95bf/b12e/8f2d/a646/my-amazing-aip-c73d10a7-7cd2-406f-95b6-b12e8f2da646"
+uv run --env-file .env cli --verbose validate --s3-uri="s3://my-bucket/c73d/10a7/7cd2/406f/95bf/b12e/8f2d/a646/my-amazing-aip-c73d10a7-7cd2-406f-95b6-b12e8f2da646"
 
 # bulk validate against a list of AIPs in a CSV
-pipenv run cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.csv" --output-csv-filepath="output/bulk-uuids-output.csv"
+uv run --env-file .env cli --verbose bulk-validate --input-csv-filepath="output/bulk-uuids.csv" --output-csv-filepath="output/bulk-uuids-output.csv"
 
 # bulk validate against pre-existing file and retry failures
-pipenv run cli --verbose bulk-validate -i output/all-aips-2025-05-02.csv -o output/all-aips-2025-05-02.csv --retry-failed
+uv run --env-file .env cli --verbose bulk-validate -i output/all-aips-2025-05-02.csv -o output/all-aips-2025-05-02.csv --retry-failed
 ```
 
-### pipenv cli run inventory
+### `uv run cli inventory`
 ```text
 Usage: -c inventory [OPTIONS]
 
@@ -216,7 +216,7 @@ Options:
 
 Example:
 ```
-pipenv run cli inventory --output-csv-filepath output/inventory.csv
+uv run --env-file .env cli inventory --output-csv-filepath output/inventory.csv
 ```
 
 ## Environment Variables

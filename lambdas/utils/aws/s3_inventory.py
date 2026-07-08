@@ -114,7 +114,7 @@ class S3InventoryClient:
 
         logger.debug(
             f"{len(inventory_parquet_files)} inventory parquet files found, "
-            f"elapsed: {time.perf_counter()-start_time}"
+            f"elapsed: {time.perf_counter() - start_time}"
         )
         self._inventory_parquet_files = inventory_parquet_files
         return inventory_parquet_files
@@ -135,21 +135,18 @@ class S3InventoryClient:
 
     def _duckdb_set_aws_credentials(self, conn: duckdb.DuckDBPyConnection) -> None:
         """Create AWS credentials secret to handle env or SSO credentials chain."""
-        conn.execute(
-            """
+        conn.execute("""
         CREATE OR REPLACE SECRET aws_secret (
             TYPE s3,
             PROVIDER credential_chain,
             CHAIN 'env;sso;process'
         );
-        """
-        )
+        """)
 
     def _duckdb_create_inventory_view(self, conn: duckdb.DuckDBPyConnection) -> None:
         """Create DuckDB view from all identified Inventory parquet files."""
         parquet_files = self.get_all_inventory_parquet_files()
-        conn.execute(
-            f"""
+        conn.execute(f"""
                     create view inventory as (
                         select
                             *,
@@ -159,8 +156,7 @@ class S3InventoryClient:
                             filename=true
                         )
                     );
-                    """
-        )
+                    """)
 
     def get_aips_df(self) -> pd.DataFrame:
         """Get DataFrame of all AIPs in S3 Inventory.
@@ -260,10 +256,7 @@ class S3InventoryClient:
             select * from bagit_aips
             order by aip_files_count desc
             ;
-            """.format(
-            aip_regex=aip_regex
-        )
-        # ruff: enable: E501
+            """.format(aip_regex=aip_regex)
 
         aips_df = self.query_inventory(query)
 
@@ -286,7 +279,7 @@ class S3InventoryClient:
                 f"Multiple entries found for AIP S3 URI '{aip_s3_uri}' "
                 "in S3 Inventory data"
             )
-        aip.aip_s3_uri = aip_s3_uri
+        aip.aip_s3_uri = aip_s3_uri  # type: ignore[attr-defined]
         return aip
 
     def get_aip_from_uuid(self, aip_uuid: str) -> pd.Series:
@@ -307,7 +300,7 @@ class S3InventoryClient:
             raise TypeError(
                 f"Multiple entries found for AIP UUID '{aip_uuid}'in S3 Inventory data"
             )
-        aip.aip_uuid = aip_uuid
+        aip.aip_uuid = aip_uuid  # type: ignore[attr-defined]
         return aip
 
     def get_aip_inventory(

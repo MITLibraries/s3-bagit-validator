@@ -339,7 +339,6 @@ class TestS3InventoryClientAIPOperations:
 
 @pytest.mark.integration
 class TestS3InventoryClientIntegration:
-
     def test_retrieval_of_inventory_aips(self):
         client = S3InventoryClient()
         aips_df = client.get_aips_df()

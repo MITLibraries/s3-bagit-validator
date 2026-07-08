@@ -20,7 +20,7 @@ All following actions and commands should be performed from the root of the proj
 - fill in missing sensitive env vars
   - ensure that `S3_INVENTORY_LOCATIONS` are for the AWS environment (e.g. dev, stage, prod) that you set in the terminal 
 
-**NOTE:** AWS credentials are automatically passed from the terminal context that runs `make sam-run`; they do not need to be explicitly set as env vars.
+**NOTE:** AWS credentials are automatically passed from the terminal context that runs `make sam-http-run`; they do not need to be explicitly set as env vars.
 
 2- Build Docker image:
 ```shell
@@ -35,7 +35,7 @@ The following outlines how to run the Lambda SAM docker image as an HTTP endpoin
  
 2- Run HTTP server:
 ```shell
-make sam-run
+make sam-http-run
 ```
 
 This starts a server at `http://localhost:3000/s3-bagit-validator` (technically the suffix is arbitrary, but requires one). 

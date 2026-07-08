@@ -144,3 +144,7 @@ output/
 # https://docs.aws.amazon.com/serverless-application-model/
 tests/sam/env.json
 .aws-sam/
+
+# Architecture-aware build artifacts
+.arch_tag
+.tool-versions

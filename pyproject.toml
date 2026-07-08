@@ -1,9 +1,41 @@
-# We do our best to sync this template with the latest version in our internal documentation.
-# For MIT developers, we strongly recommend copying the pyproject.toml template from:
-# https://mitlibraries.atlassian.net/wiki/spaces/IN/pages/3432415247/Python+Project+Linters#Template-for-pyproject.toml
+[project]
+name = "s3-bagit-validator"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "boto3",
+    "click",
+    "duckdb",
+    "pandas",
+    "requests",
+    "sentry-sdk",
+]
 
-[tool.black]
-line-length = 90
+[project.scripts]
+cli = "lambdas.cli:cli"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lambdas*"]
+
+[dependency-groups]
+dev = [
+    "boto3-stubs[s3]",
+    "coveralls",
+    "ipython",
+    "mypy",
+    "pandas-stubs",
+    "pip-audit",
+    "pre-commit",
+    "pytest",
+    "pytest-mock",
+    "pytest-reraise",
+    "ruff",
+    "types-requests",
+]
 
 [tool.mypy]
 disallow_untyped_calls = true
@@ -18,7 +50,7 @@ markers = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 exclude = ["output/"]
 
 # set max line length
@@ -49,7 +81,6 @@ ignore = [
     "PLR0912",
     "PLR0913",
     "PLR0915",
-    "S320",
     "S321",
     "TRY003"
 ]
