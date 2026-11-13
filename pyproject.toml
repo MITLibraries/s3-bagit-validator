@@ -70,6 +70,7 @@ ignore = [
 
     # project-specific
     "C90",
+    "CPY001",
     "D100",
     "D101",
     "D102",
@@ -82,7 +83,9 @@ ignore = [
     "PLR0913",
     "PLR0915",
     "S321",
-    "TRY003"
+    "TD002",
+    "TD003",
+    "TRY003",
 ]
 
 # allow autofix behavior for specified rules
