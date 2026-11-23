@@ -1,3 +1,5 @@
+# NOTE: Intentional deviation from the baseline spec: separate us-east-1 and us-west-2
+# deploy jobs because this Lambda is deployed in multiple regions.
 ### This is the Terraform-generated dev-build.yml workflow for the         ###
 ### s3-bagit-validator-stage app repository. If this is a Lambda repo,     ###
 ### uncomment the FUNCTION line at the end of the document. If the         ###
